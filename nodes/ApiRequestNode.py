@@ -1,8 +1,10 @@
 import json
 import requests
 from typing import Dict, Any, Tuple, Union
-from .utils.types import any
 from .config.NodeCategory import NodeCategory
+
+# ComfyUI类型定义
+any = "*"
 
 
 class APIRequestNode:
@@ -195,9 +197,9 @@ class APIRequestNode:
 
 
 NODE_CLASS_MAPPINGS = {
-    "😋API Request Node": APIRequestNode
+    "API Request Node": APIRequestNode
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "😋API Request Node": "😋API请求节点"
+    "API Request Node": "API请求节点"
 }

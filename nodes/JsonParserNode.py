@@ -198,10 +198,10 @@ class JsonParserNode:
 
 
 NODE_CLASS_MAPPINGS = {
-    "😋JSON Parser Node": JsonParserNode
+    "JSON Parser Node": JsonParserNode
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "😋JSON Parser Node": "😋JSON解析器"
+    "JSON Parser Node": "JSON解析器"
 }
 

@@ -59,9 +59,9 @@ class EmptyImageNode:
 
 
 NODE_CLASS_MAPPINGS = {
-    "😋Empty Image Node": EmptyImageNode
+    "Empty Image Node": EmptyImageNode
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "😋Empty Image Node": "😋空图像节点"
+    "Empty Image Node": "空图像节点"
 }

@@ -249,9 +249,9 @@ class OldPhotoColorizationNode:
 
 
 NODE_CLASS_MAPPINGS = {
-    "😋Old Photo Colorization Node": OldPhotoColorizationNode
+    "Old Photo Colorization Node": OldPhotoColorizationNode
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "😋Old Photo Colorization Node": "😋老照片上色"
+    "Old Photo Colorization Node": "老照片上色"
 }

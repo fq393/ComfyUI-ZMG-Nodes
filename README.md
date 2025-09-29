@@ -41,6 +41,12 @@ ComfyUI-ZMG-Nodes是一个专为ComfyUI设计的自定义节点插件包，包�
   - 强大的错误处理
 
 ### 🖼️ 图像处理节点 (ZMGNodes/image)
+- **Load Image From URL Node** - 从URL加载图像节点
+  - 支持从网络URL直接加载图像
+  - 自动格式检测和转换
+  - 支持多种图像格式（JPEG、PNG、WebP等）
+  - 内置错误处理和超时控制
+
 - **Old Photo Colorization Node** - 老照片上色节点
   - 基于ModelScope的AI上色技术
   - 支持批量图像处理
@@ -82,20 +88,30 @@ pip install -r requirements.txt
 ComfyUI-ZMG-Nodes/
 ├── __init__.py                 # 主入口文件
 ├── README.md                   # 项目文档
-├── py/                         # 节点实现目录
+├── requirements.txt            # 依赖包列表
+├── nodes/                      # 节点实现目录
+│   ├── __init__.py             # 节点包初始化文件
 │   ├── ApiRequestNode.py       # API请求节点
 │   ├── JsonParserNode.py       # JSON解析节点
+│   ├── LoadImageFromUrlNode.py # 从URL加载图像节点
 │   ├── OldPhotoColorizationNode.py  # 老照片上色节点
 │   ├── SaveImageUnifiedOutput.py   # 统一图像保存节点
 │   ├── EmptyImageNode.py       # 增强型空图像节点
-│   ├── config/                 # 配置文件目录
-│   │   └── NodeCategory.py     # 节点分类配置
-│   └── utils/                  # 工具模块目录
-│       ├── types.py            # 类型定义
-│       ├── vhs_logger.py       # 日志工具
-│       ├── vhs_utils.py        # 通用工具
-│       └── folder_paths.py     # 路径工具
+│   └── config/                 # 配置文件目录
+│       └── NodeCategory.py     # 节点分类配置
+└── web/                        # Web资源目录
+    ├── upload.js               # 上传功能脚本
+    └── utils.js                # 工具函数脚本
 ```
+
+## 🔧 最新更新
+
+### v1.1.0 (2024-12-19)
+- **修复导入错误**：解决了 `ApiRequestNode.py` 中的 `ModuleNotFoundError` 问题
+- **优化项目结构**：添加了 `nodes/__init__.py` 文件，使节点目录成为标准Python包
+- **改进错误处理**：所有节点现在都有更好的错误处理和类型定义
+- **完善测试**：添加了完整的导入测试脚本，确保所有节点都能正常加载
+- **更新文档**：修正了项目结构说明，反映实际的目录布局
 
 ## 🔧 使用说明
 
@@ -120,6 +136,13 @@ json_path = "user.name"  # 输出: "张三"
 # 数组索引
 json_data = '{"items": ["apple", "banana", "orange"]}'
 json_path = "items[1]"  # 输出: "banana"
+```
+
+### Load Image From URL Node
+```python
+# 从URL加载图像
+url = "https://example.com/image.jpg"
+# 节点会自动下载并转换为ComfyUI可用的图像格式
 ```
 
 ### Empty Image Node
@@ -161,8 +184,3 @@ passthrough = True  # 将输入直接传递到输出
 
 - GitHub: [@fq393](https://github.com/fq393)
 - 项目链接: [https://github.com/fq393/ComfyUI-ZMG-Nodes](https://github.com/fq393/ComfyUI-ZMG-Nodes)
-
----
-
-**版本**: 1.0.0  
-**最后更新**: 2024年
