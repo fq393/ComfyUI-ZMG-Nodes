@@ -47,18 +47,6 @@ ComfyUI-ZMG-Nodes是一个专为ComfyUI设计的自定义节点插件包，包�
   - 支持多种图像格式（JPEG、PNG、WebP等）
   - 内置错误处理和超时控制
 
-- **Old Photo Colorization Node** - 老照片上色节点
-  - 基于ModelScope的AI上色技术
-  - 支持批量图像处理
-  - 多种质量级别选择
-  - 延迟模型加载优化
-
-- **Save Image Unified Output** - 统一图像保存节点
-  - 支持多种图像格式（PNG、JPEG、WebP）
-  - 自定义文件命名和路径
-  - 元数据嵌入支持
-  - 批量保存和质量控制
-
 ### 🔧 工具类节点 (ZMGNodes/utils)
 - **Empty Image Node** - 增强型空图像节点
   - 支持多种输出模式（无输出、空张量、占位符图像）
@@ -94,8 +82,6 @@ ComfyUI-ZMG-Nodes/
 │   ├── ApiRequestNode.py       # API请求节点
 │   ├── JsonParserNode.py       # JSON解析节点
 │   ├── LoadImageFromUrlNode.py # 从URL加载图像节点
-│   ├── OldPhotoColorizationNode.py  # 老照片上色节点
-│   ├── SaveImageUnifiedOutput.py   # 统一图像保存节点
 │   ├── EmptyImageNode.py       # 增强型空图像节点
 │   └── config/                 # 配置文件目录
 │       └── NodeCategory.py     # 节点分类配置
@@ -105,6 +91,18 @@ ComfyUI-ZMG-Nodes/
 ```
 
 ## 🔧 最新更新
+
+### v1.1.2 (2024-12-19)
+- **优化项目结构**：移除了 `OldPhotoColorizationNode.py` 节点，简化项目复杂度
+- **简化依赖配置**：更新 `requirements.txt`，移除不必要的依赖包（opencv-python、modelscope、imageio-ffmpeg）
+- **保留核心功能**：项目现在专注于4个核心节点：API请求、JSON解析、URL图像加载和空图像处理
+- **优化依赖管理**：仅保留必要的依赖包（requests、Pillow、numpy、torch）
+- **更新文档**：同步更新README.md，反映当前的项目状态和文件结构
+
+### v1.1.1 (2024-12-19)
+- **移除复杂节点**：删除 `OldPhotoColorizationNode.py` 及其相关配置
+- **修复导入路径**：解决节点导入时的路径问题
+- **优化配置文件**：更新 `__init__.py` 中的节点配置映射
 
 ### v1.1.0 (2024-12-19)
 - **修复导入错误**：解决了 `ApiRequestNode.py` 中的 `ModuleNotFoundError` 问题
