@@ -35,29 +35,13 @@ class LoadImageFromUrlNode:
                 "urls": ("STRING", {
                     "default": "",
                     "multiline": True,
-                    "placeholder": "输入图像URL或路径，每行一个。支持格式：\nhttps://example.com/image.png\nfile:///path/to/image.jpg\ndata:image/png;base64,...\n/view?filename=image.png&type=input"
-                }),
-                "width": ("INT", {
-                    "default": 512,
-                    "min": 64,
-                    "max": 4096,
-                    "step": 8,
-                    "display": "number"
-                }),
-                "height": ("INT", {
-                    "default": 512,
-                    "min": 64,
-                    "max": 4096,
-                    "step": 8,
-                    "display": "number"
-                }),
-                "color": ("STRING", {
-                    "default": "black",
-                    "multiline": False,
-                    "placeholder": "空图像颜色 (black/white/red/green/blue 或 #RRGGBB)"
+                    "placeholder": "输入图像URL或路径，每行一个。支持格式：\nhttps://example.com/image.png\nfile:///path/to/image.jpg\n\n或使用下方的文件上传按钮"
                 })
             },
             "optional": {
+                "upload": ("IMAGEUPLOAD", {
+                    "image_upload": True
+                }),
                 "keep_alpha_channel": (
                     "BOOLEAN",
                     {"default": False, "label_on": "保留", "label_off": "移除"}
@@ -133,29 +117,7 @@ class LoadImageFromUrlNode:
         # 转换为PyTorch张量并添加批次维度
         return torch.from_numpy(image_array).unsqueeze(0)
     
-    def _create_empty_image(self, width: int, height: int, color: str) -> Image.Image:
-        """创建空白图像"""
-        # 解析颜色
-        if color.startswith('#'):
-            # 十六进制颜色
-            try:
-                color_rgb = tuple(int(color[i:i+2], 16) for i in (1, 3, 5))
-            except ValueError:
-                color_rgb = (0, 0, 0)  # 默认黑色
-        else:
-            # 预定义颜色
-            color_map = {
-                'black': (0, 0, 0),
-                'white': (255, 255, 255),
-                'red': (255, 0, 0),
-                'green': (0, 255, 0),
-                'blue': (0, 0, 255),
-                'gray': (128, 128, 128),
-                'grey': (128, 128, 128)
-            }
-            color_rgb = color_map.get(color.lower(), (0, 0, 0))
-        
-        return Image.new('RGB', (width, height), color_rgb)
+
     
     def _load_images_from_urls(self, urls: List[str], timeout: int = 30, keep_alpha_channel: bool = False) -> Tuple[List[Image.Image], List[Optional[Image.Image]]]:
         """从URL列表加载图像"""
@@ -320,17 +282,14 @@ class LoadImageFromUrlNode:
             print(f"加载ComfyUI内部图像失败: {e}")
             return None
     
-    def load_images(self, urls: str, width: int, height: int, color: str, 
-                   keep_alpha_channel: bool = False, output_mode: bool = False, 
-                   timeout: int = 30) -> Tuple[List[torch.Tensor], List[torch.Tensor], bool]:
+    def load_images(self, urls: str, upload=None, keep_alpha_channel: bool = False, 
+                   output_mode: bool = False, timeout: int = 30) -> Tuple[List[torch.Tensor], List[torch.Tensor], bool]:
         """
-        从URL列表加载图像
+        从URL列表或上传文件加载图像
         
         Args:
             urls: 图像URL列表，每行一个
-            width: 空图像宽度（当URL为空或加载失败时使用）
-            height: 空图像高度（当URL为空或加载失败时使用）
-            color: 空图像颜色
+            upload: 上传的图像文件
             keep_alpha_channel: 是否保留Alpha通道
             output_mode: 输出模式，False=批次模式，True=列表模式
             timeout: 网络请求超时时间（秒）
@@ -341,12 +300,19 @@ class LoadImageFromUrlNode:
         # 解析URL列表
         url_list = [url.strip() for url in urls.strip().split("\n") if url.strip()]
         
-        # 如果没有有效的URL，创建空图像
+        # 处理上传的文件
+        if upload is not None and hasattr(upload, 'get'):
+            # 获取上传文件的路径
+            upload_path = upload.get('image', None)
+            if upload_path and folder_paths:
+                # 构建完整的文件路径
+                full_path = folder_paths.get_annotated_filepath(upload_path)
+                if full_path and os.path.exists(full_path):
+                    url_list.append(f"file://{full_path}")
+        
+        # 如果没有有效的URL或上传文件，返回空结果
         if not url_list:
-            empty_image = self._create_empty_image(width, height, color)
-            image_tensor = self._pil_to_tensor(empty_image, keep_alpha_channel)
-            mask_tensor = torch.zeros((height, width), dtype=torch.float32)
-            return ([image_tensor], [mask_tensor], False)
+            return ([], [], False)
         
         # 加载图像
         pil_images, pil_masks = self._load_images_from_urls(url_list, timeout, keep_alpha_channel)
@@ -407,16 +373,7 @@ class LoadImageFromUrlNode:
     def VALIDATE_INPUTS(cls, **kwargs):
         """验证输入参数"""
         urls = kwargs.get("urls", "")
-        width = kwargs.get("width", 512)
-        height = kwargs.get("height", 512)
         timeout = kwargs.get("timeout", 30)
-        
-        # 验证尺寸参数
-        if not isinstance(width, int) or width < 64 or width > 4096:
-            return "宽度必须在64-4096之间"
-        
-        if not isinstance(height, int) or height < 64 or height > 4096:
-            return "高度必须在64-4096之间"
         
         # 验证超时参数
         if not isinstance(timeout, int) or timeout < 5 or timeout > 120:
