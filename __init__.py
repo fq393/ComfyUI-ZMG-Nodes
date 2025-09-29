@@ -1,8 +1,7 @@
-from nodes.ApiRequestNode import *
-from nodes.JsonParserNode import *
-from nodes.OldPhotoColorizationNode import *
-from nodes.EmptyImageNode import *
-from nodes.LoadImageFromUrlNode import *
+from .nodes.ApiRequestNode import *
+from .nodes.JsonParserNode import *
+from .nodes.EmptyImageNode import *
+from .nodes.LoadImageFromUrlNode import *
 
 NODE_CONFIG = {
     # Network nodes
@@ -13,7 +12,6 @@ NODE_CONFIG = {
     
     # Image processing nodes
     "LoadImageFromUrlNode": {"class": LoadImageFromUrlNode, "name": "LoadImageFromUrlNode"},
-    "OldPhotoColorizationNode": {"class": OldPhotoColorizationNode, "name": "Old Photo Colorization"},
     
     # Utility nodes
     "Empty Image Node": {"class": EmptyImageNode, "name": "Empty Image Node"},
