@@ -1,21 +1,18 @@
-# 图像处理相关
-opencv-python>=4.8.0
-Pillow>=9.5.0
-numpy>=1.24.0
-
-# 深度学习框架
-torch>=2.0.0
-
-# 模型和AI相关
-modelscope>=1.9.0
-
+# 核心依赖 - 基于实际使用的模块
 # 网络请求
 requests>=2.31.0
 
-# 视频处理
-imageio-ffmpeg>=0.4.8
+# 图像处理
+Pillow>=9.5.0
+numpy>=1.24.0
 
-# ComfyUI相关（通常由ComfyUI环境提供，这里仅作记录）
-# comfy
-# folder_paths
-# nodes
+# 深度学习框架 (LoadImageFromUrlNode需要)
+torch>=2.0.0
+
+# 注意：以下模块由ComfyUI环境提供，无需单独安装
+# - json (Python内置)
+# - re (Python内置) 
+# - typing (Python内置)
+# - os (Python内置)
+# - io (Python内置)
+# - urllib (Python内置)
