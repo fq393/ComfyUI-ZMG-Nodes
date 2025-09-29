@@ -41,11 +41,16 @@ ComfyUI-ZMG-Nodes是一个专为ComfyUI设计的自定义节点插件包，包�
   - 强大的错误处理
 
 ### 🖼️ 图像处理节点 (ZMGNodes/image)
-- **Load Image From URL Node** - 从URL加载图像节点
-  - 支持从网络URL直接加载图像
-  - 自动格式检测和转换
-  - 支持多种图像格式（JPEG、PNG、WebP等）
-  - 内置错误处理和超时控制
+- **Load Images From URL Node** - 增强型URL图像加载节点
+  - **多种URL格式支持**：HTTP/HTTPS、本地文件路径、File协议、Data URI、ComfyUI内部路径
+  - **批量处理**：支持多行URL输入，一次性加载多张图像
+  - **Alpha通道处理**：可选择保留或移除图像的透明通道
+  - **灵活输出模式**：支持列表输出和批量输出两种模式
+  - **智能错误处理**：详细的错误信息和状态反馈
+  - **EXIF自动旋转**：自动处理图像的EXIF旋转信息
+  - **遮罩提取**：自动从Alpha通道提取遮罩信息
+  - **自定义超时**：可配置网络请求超时时间
+  - **输入验证**：完整的URL和参数验证机制
 
 ### 🔧 工具类节点 (ZMGNodes/utils)
 - **Empty Image Node** - 增强型空图像节点
@@ -92,6 +97,17 @@ ComfyUI-ZMG-Nodes/
 
 ## 🔧 最新更新
 
+### v1.2.0 (2024-12-19)
+- **大幅增强LoadImageFromUrlNode**：重构为LoadImagesFromUrlNode，支持批量图像处理
+- **新增多种URL格式支持**：Data URI、File协议、ComfyUI内部路径、本地文件路径
+- **批量处理功能**：支持多行URL输入，一次性加载多张图像
+- **Alpha通道处理**：可选择保留或移除图像的透明通道，自动提取遮罩
+- **灵活输出模式**：支持列表输出和批量输出两种模式
+- **增强错误处理**：详细的错误信息、网络状态检查、超时处理
+- **EXIF自动旋转**：自动处理图像的EXIF旋转信息
+- **输入验证机制**：完整的URL和参数验证，提升用户体验
+- **向后兼容性**：保持与旧版本的兼容性，平滑升级
+
 ### v1.1.2 (2024-12-19)
 - **优化项目结构**：移除了 `OldPhotoColorizationNode.py` 节点，简化项目复杂度
 - **简化依赖配置**：更新 `requirements.txt`，移除不必要的依赖包（opencv-python、modelscope、imageio-ffmpeg）
@@ -136,11 +152,32 @@ json_data = '{"items": ["apple", "banana", "orange"]}'
 json_path = "items[1]"  # 输出: "banana"
 ```
 
-### Load Image From URL Node
+### Load Images From URL Node
 ```python
-# 从URL加载图像
-url = "https://example.com/image.jpg"
-# 节点会自动下载并转换为ComfyUI可用的图像格式
+# 单个网络图像
+urls = "https://example.com/image.jpg"
+
+# 多个图像（多行输入）
+urls = """https://example.com/image1.jpg
+https://example.com/image2.png
+/path/to/local/image.jpg"""
+
+# Data URI格式
+urls = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
+
+# 本地文件路径
+urls = "/Users/username/Pictures/photo.jpg"
+
+# File协议
+urls = "file:///Users/username/Pictures/photo.jpg"
+
+# ComfyUI内部路径
+urls = "/view?filename=image.png&subfolder=&type=input"
+
+# 高级配置
+keep_alpha_channel = True    # 保留Alpha通道
+output_mode = False         # 列表输出模式
+timeout = 30               # 30秒超时
 ```
 
 ### Empty Image Node
