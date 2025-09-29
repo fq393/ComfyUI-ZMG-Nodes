@@ -322,9 +322,9 @@ class LoadImageFromUrlNode:
         
         if not has_images:
             # 没有成功加载任何图像，返回空图像
-            empty_image = self._create_empty_image(width, height, color)
+            empty_image = Image.new('RGB', (512, 512), color='black')
             image_tensor = self._pil_to_tensor(empty_image, keep_alpha_channel)
-            mask_tensor = torch.zeros((height, width), dtype=torch.float32)
+            mask_tensor = torch.zeros((512, 512), dtype=torch.float32)
             return ([image_tensor], [mask_tensor], False)
         
         # 转换为张量
