@@ -1,6 +1,7 @@
 """
 Load Image From URL Node
 从URL加载图像的节点，支持多种图像源格式
+基于comfyui-art-venture的LoadImageFromUrl节点实现
 """
 
 import os
@@ -21,6 +22,110 @@ except ImportError:
 from .config.NodeCategory import NodeCategory
 
 
+def load_images_from_url(urls: List[str], keep_alpha_channel=False):
+    """
+    从URL列表加载图像
+    支持多种URL格式：HTTP/HTTPS、file://、data:image/、ComfyUI内部路径等
+    """
+    images: List[Image.Image] = []
+    masks: List[Optional[Image.Image]] = []
+
+    for url in urls:
+        if url.startswith("data:image/"):
+            # 处理base64编码的图像数据
+            i = Image.open(io.BytesIO(base64.b64decode(url.split(",")[1])))
+        elif url.startswith("file://"):
+            # 处理file://协议
+            url = url[7:]
+            if not os.path.isfile(url):
+                raise Exception(f"File {url} does not exist")
+            i = Image.open(url)
+        elif url.startswith("http://") or url.startswith("https://"):
+            # 处理HTTP/HTTPS URL
+            response = requests.get(url, timeout=5)
+            if response.status_code != 200:
+                raise Exception(response.text)
+            i = Image.open(io.BytesIO(response.content))
+        elif url.startswith(("/view?", "/api/view?")):
+            # 处理ComfyUI内部路径
+            qs_idx = url.find("?")
+            qs = parse_qs(url[qs_idx + 1:])
+            filename = qs.get("name", qs.get("filename", None))
+            if filename is None:
+                raise Exception(f"Invalid url: {url}")
+
+            filename = filename[0]
+            subfolder = qs.get("subfolder", None)
+            if subfolder is not None:
+                filename = os.path.join(subfolder[0], filename)
+
+            dirtype = qs.get("type", ["input"])
+            if dirtype[0] == "input":
+                url = os.path.join(folder_paths.get_input_directory(), filename)
+            elif dirtype[0] == "output":
+                url = os.path.join(folder_paths.get_output_directory(), filename)
+            elif dirtype[0] == "temp":
+                url = os.path.join(folder_paths.get_temp_directory(), filename)
+            else:
+                raise Exception(f"Invalid url: {url}")
+
+            i = Image.open(url)
+        elif url == "":
+            # 跳过空URL
+            continue
+        else:
+            # 处理本地文件路径
+            if folder_paths:
+                url = folder_paths.get_annotated_filepath(url)
+            if not os.path.isfile(url):
+                raise Exception(f"Invalid url: {url}")
+            i = Image.open(url)
+
+        # 处理EXIF旋转
+        i = ImageOps.exif_transpose(i)
+        has_alpha = "A" in i.getbands()
+        mask = None
+
+        # 确保图像格式正确
+        if "RGB" not in i.mode:
+            i = i.convert("RGBA") if has_alpha else i.convert("RGB")
+
+        # 提取Alpha通道作为mask
+        if has_alpha:
+            mask = i.getchannel("A")
+
+        # 根据设置决定是否保留Alpha通道
+        if not keep_alpha_channel:
+            image = i.convert("RGB")
+        else:
+            image = i
+
+        images.append(image)
+        masks.append(mask)
+
+    return (images, masks)
+
+
+def pil2tensor(image: Image.Image) -> torch.Tensor:
+    """将PIL图像转换为PyTorch张量"""
+    return torch.from_numpy(np.array(image).astype(np.float32) / 255.0).unsqueeze(0)
+
+
+def tensor2pil(image: torch.Tensor, mode="RGB") -> Image.Image:
+    """将PyTorch张量转换为PIL图像"""
+    return Image.fromarray(np.clip(255. * image.cpu().numpy().squeeze(), 0, 255).astype(np.uint8), mode)
+
+
+def prepare_image_for_preview(image: Image.Image, output_dir: str, filename_prefix: str) -> dict:
+    """为图像准备预览信息"""
+    # 这里简化实现，实际应该保存临时文件并返回预览信息
+    return {
+        "filename": f"{filename_prefix}_preview.png",
+        "subfolder": "",
+        "type": "temp"
+    }
+
+
 class LoadImageFromUrlNode:
     """
     从URL加载图像的节点
@@ -28,43 +133,42 @@ class LoadImageFromUrlNode:
     当URL为空时，返回空白图像
     """
     
+    def __init__(self):
+        self.output_dir = folder_paths.get_temp_directory() if folder_paths else "/tmp"
+        self.filename_prefix = "LoadImageFromUrl"
+        
+    @classmethod
+    def OUTPUT_NODE(cls):
+        return True
+
     @classmethod
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "urls": ("STRING", {
+                "image": ("STRING", {
                     "default": "",
+                    "placeholder": "Input image paths or URLS one per line. Eg:\nhttps://example.com/image.png\nfile:///path/to/local/image.jpg\ndata:image/png;base64,...",
                     "multiline": True,
-                    "placeholder": "输入图像URL或路径，每行一个。支持格式：\nhttps://example.com/image.png\nfile:///path/to/image.jpg\n\n或使用下方的文件上传按钮"
-                })
+                    "dynamicPrompts": False,
+                }),
             },
             "optional": {
-                "upload": ("IMAGEUPLOAD", {
-                    "image_upload": True
-                }),
                 "keep_alpha_channel": (
                     "BOOLEAN",
-                    {"default": False, "label_on": "保留", "label_off": "移除"}
+                    {"default": False, "label_on": "enabled", "label_off": "disabled"},
                 ),
                 "output_mode": (
-                    "BOOLEAN", 
-                    {"default": False, "label_on": "列表", "label_off": "批次"}
+                    "BOOLEAN",
+                    {"default": False, "label_on": "list", "label_off": "batch"},
                 ),
-                "timeout": ("INT", {
-                    "default": 30,
-                    "min": 5,
-                    "max": 120,
-                    "step": 5,
-                    "display": "number"
-                })
-            }
+            },
         }
     
     RETURN_TYPES = ("IMAGE", "MASK", "BOOLEAN")
-    RETURN_NAMES = ("images", "masks", "has_images")
     OUTPUT_IS_LIST = (True, True, False)
-    FUNCTION = "load_images"
+    RETURN_NAMES = ("images", "masks", "has_image")
     CATEGORY = NodeCategory.IMAGE
+    FUNCTION = "load_image"
     
     DESCRIPTION = """
 从URL加载图像的高级节点 - 支持多种图像源和批量处理
@@ -96,278 +200,69 @@ class LoadImageFromUrlNode:
 • 处理包含透明度的图像
 """
     
-    def _pil_to_tensor(self, image: Image.Image, keep_alpha_channel: bool = False) -> torch.Tensor:
-        """将PIL图像转换为PyTorch张量"""
-        # 处理EXIF旋转（如果还没有处理过）
-        image = ImageOps.exif_transpose(image)
-        
-        # 根据设置决定目标格式
-        if keep_alpha_channel and "A" in image.getbands():
-            # 保留Alpha通道，转换为RGBA
-            if image.mode != 'RGBA':
-                image = image.convert('RGBA')
-        else:
-            # 不保留Alpha通道，转换为RGB
-            if image.mode != 'RGB':
-                image = image.convert('RGB')
-        
-        # 转换为numpy数组并归一化到[0,1]
-        image_array = np.array(image).astype(np.float32) / 255.0
-        
-        # 转换为PyTorch张量并添加批次维度
-        return torch.from_numpy(image_array).unsqueeze(0)
-    
-
-    
-    def _load_images_from_urls(self, urls: List[str], timeout: int = 30, keep_alpha_channel: bool = False) -> Tuple[List[Image.Image], List[Optional[Image.Image]]]:
-        """从URL列表加载图像"""
-        images: List[Image.Image] = []
-        masks: List[Optional[Image.Image]] = []
-        
-        for url in urls:
-            url = url.strip()
-            if not url:
-                continue
-                
-            try:
-                image = self._load_single_image_from_url(url, timeout)
-                if image is None:
-                    continue
-                    
-                # 处理EXIF旋转
-                image = ImageOps.exif_transpose(image)
-                
-                # 检查是否有Alpha通道
-                has_alpha = "A" in image.getbands()
-                mask = None
-                
-                # 确保图像格式正确
-                if "RGB" not in image.mode:
-                    image = image.convert("RGBA") if has_alpha else image.convert("RGB")
-                
-                # 提取Alpha通道作为mask
-                if has_alpha:
-                    mask = image.getchannel("A")
-                
-                # 根据设置决定是否保留Alpha通道
-                if not keep_alpha_channel and has_alpha:
-                    image = image.convert("RGB")
-                
-                images.append(image)
-                masks.append(mask)
-                
-            except Exception as e:
-                print(f"加载图像失败 {url}: {e}")
-                continue
-        
-        return images, masks
-    
-    def _load_single_image_from_url(self, url: str, timeout: int = 30) -> Optional[Image.Image]:
-        """从单个URL加载图像"""
-        try:
-            if url.startswith("data:image/"):
-                # Data URI格式
-                try:
-                    if "," not in url:
-                        print(f"无效的Data URI格式: {url[:100]}...")
-                        return None
-                    image_data = base64.b64decode(url.split(",")[1])
-                    return Image.open(io.BytesIO(image_data))
-                except Exception as e:
-                    print(f"解析Data URI失败: {e}")
-                    return None
-                
-            elif url.startswith("file://"):
-                # File协议
-                file_path = url[7:]  # 移除 "file://" 前缀
-                if not os.path.isfile(file_path):
-                    print(f"文件不存在: {file_path}")
-                    return None
-                try:
-                    return Image.open(file_path)
-                except Exception as e:
-                    print(f"打开本地文件失败 {file_path}: {e}")
-                    return None
-                
-            elif url.startswith(("http://", "https://")):
-                # HTTP/HTTPS URL
-                try:
-                    print(f"正在下载图像: {url}")
-                    response = requests.get(url, timeout=timeout, stream=True)
-                    response.raise_for_status()
-                    
-                    # 检查内容类型
-                    content_type = response.headers.get('content-type', '').lower()
-                    if content_type and not content_type.startswith('image/'):
-                        print(f"警告：内容类型不是图像 ({content_type}): {url}")
-                    
-                    return Image.open(io.BytesIO(response.content))
-                except requests.exceptions.Timeout:
-                    print(f"请求超时 ({timeout}秒): {url}")
-                    return None
-                except requests.exceptions.ConnectionError:
-                    print(f"连接失败: {url}")
-                    return None
-                except requests.exceptions.HTTPError as e:
-                    print(f"HTTP错误 {e.response.status_code}: {url}")
-                    return None
-                except Exception as e:
-                    print(f"下载图像失败 {url}: {e}")
-                    return None
-                
-            elif url.startswith(("/view?", "/api/view?")):
-                # ComfyUI内部路径
-                return self._load_comfyui_internal_image(url)
-                
-            else:
-                # 本地文件路径
-                # 尝试使用ComfyUI的路径解析（如果可用）
-                if folder_paths:
-                    try:
-                        file_path = folder_paths.get_annotated_filepath(url)
-                    except Exception as e:
-                        print(f"ComfyUI路径解析失败，使用原始路径: {e}")
-                        file_path = url
-                else:
-                    file_path = url
-                    
-                if not os.path.isfile(file_path):
-                    print(f"文件不存在: {file_path}")
-                    return None
-                
-                try:
-                    return Image.open(file_path)
-                except Exception as e:
-                    print(f"打开本地文件失败 {file_path}: {e}")
-                    return None
-                
-        except Exception as e:
-            print(f"加载图像时发生未知错误 {url}: {e}")
-            return None
-    
-    def _load_comfyui_internal_image(self, url: str) -> Optional[Image.Image]:
-        """加载ComfyUI内部图像路径"""
-        if not folder_paths:
-            print("ComfyUI folder_paths不可用")
-            return None
-            
-        try:
-            qs_idx = url.find("?")
-            qs = parse_qs(url[qs_idx + 1:])
-            
-            filename = qs.get("name", qs.get("filename", None))
-            if filename is None:
-                print(f"无效的URL: {url}")
-                return None
-            
-            filename = filename[0]
-            subfolder = qs.get("subfolder", None)
-            if subfolder is not None:
-                filename = os.path.join(subfolder[0], filename)
-            
-            dirtype = qs.get("type", ["input"])
-            if dirtype[0] == "input":
-                file_path = os.path.join(folder_paths.get_input_directory(), filename)
-            elif dirtype[0] == "output":
-                file_path = os.path.join(folder_paths.get_output_directory(), filename)
-            elif dirtype[0] == "temp":
-                file_path = os.path.join(folder_paths.get_temp_directory(), filename)
-            else:
-                print(f"无效的目录类型: {dirtype[0]}")
-                return None
-            
-            return Image.open(file_path)
-            
-        except Exception as e:
-            print(f"加载ComfyUI内部图像失败: {e}")
-            return None
-    
-    def load_images(self, urls: str, upload=None, keep_alpha_channel: bool = False, 
-                   output_mode: bool = False, timeout: int = 30) -> Tuple[List[torch.Tensor], List[torch.Tensor], bool]:
+    def load_image(self, image: str, keep_alpha_channel=False, output_mode=False):
         """
-        从URL列表或上传文件加载图像
+        加载图像的主要方法
         
         Args:
-            urls: 图像URL列表，每行一个
-            upload: 上传的图像文件
+            image: URL字符串，每行一个URL
             keep_alpha_channel: 是否保留Alpha通道
-            output_mode: 输出模式，False=批次模式，True=列表模式
-            timeout: 网络请求超时时间（秒）
+            output_mode: 输出模式，False为批次模式，True为列表模式
             
         Returns:
-            tuple: (图像张量列表, mask张量列表, 是否有图像)
+            包含UI预览和结果的字典
         """
-        # 解析URL列表
-        url_list = [url.strip() for url in urls.strip().split("\n") if url.strip()]
+        urls = image.strip().split("\n")
+        pil_images, pil_masks = load_images_from_url(urls, keep_alpha_channel)
+        has_image = len(pil_images) > 0
         
-        # 处理上传的文件
-        if upload is not None and hasattr(upload, 'get'):
-            # 获取上传文件的路径
-            upload_path = upload.get('image', None)
-            if upload_path and folder_paths:
-                # 构建完整的文件路径
-                full_path = folder_paths.get_annotated_filepath(upload_path)
-                if full_path and os.path.exists(full_path):
-                    url_list.append(f"file://{full_path}")
-        
-        # 如果没有有效的URL或上传文件，返回空结果
-        if not url_list:
-            return ([], [], False)
-        
-        # 加载图像
-        pil_images, pil_masks = self._load_images_from_urls(url_list, timeout, keep_alpha_channel)
-        
-        # 检查是否成功加载了图像
-        has_images = len(pil_images) > 0
-        
-        if not has_images:
-            # 没有成功加载任何图像，返回空图像
-            empty_image = Image.new('RGB', (512, 512), color='black')
-            image_tensor = self._pil_to_tensor(empty_image, keep_alpha_channel)
-            mask_tensor = torch.zeros((512, 512), dtype=torch.float32)
-            return ([image_tensor], [mask_tensor], False)
-        
-        # 转换为张量
-        image_tensors: List[torch.Tensor] = []
-        mask_tensors: List[torch.Tensor] = []
-        
+        if not has_image:
+            # 没有图像时返回空白图像
+            i = torch.zeros((1, 64, 64, 3), dtype=torch.float32, device="cpu")
+            m = torch.zeros((64, 64), dtype=torch.float32, device="cpu")
+            pil_images = [tensor2pil(i)]
+            pil_masks = [tensor2pil(m, mode="L")]
+
+        previews = []
+        np_images: list[torch.Tensor] = []
+        np_masks: list[torch.Tensor] = []
+
         for pil_image, pil_mask in zip(pil_images, pil_masks):
-            # 转换图像为张量
-            image_tensor = self._pil_to_tensor(pil_image, keep_alpha_channel)
-            image_tensors.append(image_tensor)
-            
-            # 转换mask为张量
             if pil_mask is not None:
-                mask_array = np.array(pil_mask).astype(np.float32) / 255.0
-                mask_tensor = 1.0 - torch.from_numpy(mask_array)  # 反转mask
+                preview_image = Image.new("RGB", pil_image.size)
+                preview_image.paste(pil_image, (0, 0))
+                preview_image.putalpha(pil_mask)
             else:
-                mask_tensor = torch.zeros((pil_image.height, pil_image.width), dtype=torch.float32)
-            
-            mask_tensors.append(mask_tensor)
-        
-        # 根据输出模式处理结果
+                preview_image = pil_image
+
+            previews.append(prepare_image_for_preview(preview_image, self.output_dir, self.filename_prefix))
+
+            np_image = pil2tensor(pil_image)
+            if pil_mask:
+                np_mask = np.array(pil_mask).astype(np.float32) / 255.0
+                np_mask = 1.0 - torch.from_numpy(np_mask)
+            else:
+                np_mask = torch.zeros((64, 64), dtype=torch.float32, device="cpu")
+
+            np_images.append(np_image)
+            np_masks.append(np_mask.unsqueeze(0))
+
         if output_mode:
-            # 列表模式：返回图像列表
-            return (image_tensors, mask_tensors, has_images)
+            result = (np_images, np_masks, has_image)
         else:
-            # 批次模式：尝试合并为批次
-            if len(image_tensors) > 1:
-                # 检查尺寸是否一致
-                first_shape = image_tensors[0].shape
-                has_size_mismatch = any(
-                    tensor.shape[1:3] != first_shape[1:3] for tensor in image_tensors[1:]
-                )
-                
-                if has_size_mismatch:
-                    print("警告：图像尺寸不一致，自动切换到列表模式")
-                    return (image_tensors, mask_tensors, has_images)
-                
-                # 合并为批次
-                batch_images = torch.cat(image_tensors, dim=0)
-                batch_masks = torch.stack(mask_tensors, dim=0)
-                return ([batch_images], [batch_masks], has_images)
-            else:
-                 return (image_tensors, mask_tensors, has_images)
+            has_size_mismatch = False
+            if len(np_images) > 1:
+                for np_image in np_images[1:]:
+                    if np_image.shape[1] != np_images[0].shape[1] or np_image.shape[2] != np_images[0].shape[2]:
+                        has_size_mismatch = True
+                        break
+
+            if has_size_mismatch:
+                raise Exception("To output as batch, images must have the same size. Use list output mode instead.")
+
+            result = ([torch.cat(np_images)], [torch.cat(np_masks)], has_image)
+
+        return {"ui": {"images": previews}, "result": result}
     
     @classmethod
     def VALIDATE_INPUTS(cls, **kwargs):

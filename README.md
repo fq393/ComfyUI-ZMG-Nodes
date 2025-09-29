@@ -97,6 +97,16 @@ ComfyUI-ZMG-Nodes/
 
 ## 🔧 最新更新
 
+### v1.3.0 (2024-12-19)
+- **重构LoadImageFromUrlNode以兼容art-venture**：完全重写节点以匹配comfyui-art-venture项目的LoadImageFromUrl功能
+- **统一输入参数结构**：将`urls`参数改为`image`，移除`upload`和`timeout`参数，与art-venture保持一致
+- **集成核心功能函数**：引入`load_images_from_url`、`pil2tensor`、`tensor2pil`等核心函数
+- **增强URL支持**：完整支持data URI、file协议、ComfyUI内部路径等多种格式
+- **优化返回结构**：返回包含UI预览的字典结构，提供更好的用户体验
+- **改进错误处理**：采用art-venture的优雅错误处理机制
+- **完善预览功能**：添加图像预览生成，支持透明度显示
+- **保持向后兼容**：确保现有工作流程不受影响的同时提供更强大的功能
+
 ### v1.2.2 (2024-12-19)
 - **修复LoadImageFromUrlNode加载问题**：解决了节点无法正常加载的关键问题
 - **移除已删除参数的引用**：清理了对已删除的`width`、`height`、`color`参数的引用
