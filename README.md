@@ -82,15 +82,19 @@ ComfyUI-ZMG-Nodes/
 ├── __init__.py                 # 主入口文件
 ├── README.md                   # 项目文档
 ├── requirements.txt            # 依赖包列表
+├── fonts/                      # 字体文件目录
+│   └── Songti.ttc              # 宋体字体文件
 ├── nodes/                      # 节点实现目录
 │   ├── __init__.py             # 节点包初始化文件
 │   ├── ApiRequestNode.py       # API请求节点
 │   ├── JsonParserNode.py       # JSON解析节点
 │   ├── LoadImageFromUrlNode.py # 从URL加载图像节点
+│   ├── TextToImageNode.py      # 文本转图像节点
 │   ├── EmptyImageNode.py       # 增强型空图像节点
 │   └── config/                 # 配置文件目录
 │       └── NodeCategory.py     # 节点分类配置
 └── web/                        # Web资源目录
+    ├── text-switch-case.js     # 文本大小写切换脚本
     ├── upload.js               # 上传功能脚本
     └── utils.js                # 工具函数脚本
 ```
@@ -102,7 +106,7 @@ ComfyUI-ZMG-Nodes/
 - **多语言字符支持**：完整支持中文、英文、数字和特殊字符的渲染
 - **自定义颜色配置**：支持文本颜色和背景颜色的自由配置，支持十六进制和RGB格式
 - **动态画布尺寸**：根据文本内容自动调整画布大小，确保文本完整显示
-- **字体选择功能**：用户可从font目录中选择字体文件，支持.ttf、.ttc、.otf格式
+- **字体选择功能**：用户可从fonts目录中选择字体文件，支持.ttf、.ttc、.otf格式
 - **相对路径字体加载**：使用相对路径加载字体，避免硬编码路径问题
 - **智能字体回退**：当选择的字体不可用时，自动使用系统默认字体
 - **完善的错误处理**：包含字体加载失败、文本渲染异常等情况的处理机制

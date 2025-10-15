@@ -18,11 +18,11 @@ def pil2tensor(image):
 
 
 def get_available_fonts():
-    """获取font文件夹中的可用字体列表"""
+    """获取fonts文件夹中的可用字体列表"""
     # 获取当前文件的目录
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    # 构建font文件夹的相对路径
-    font_dir = os.path.join(os.path.dirname(current_dir), "font")
+    # 构建fonts文件夹的相对路径
+    font_dir = os.path.join(os.path.dirname(current_dir), "fonts")
     
     available_fonts = ["默认字体"]  # 默认选项
     
@@ -47,7 +47,7 @@ def get_font_path(font_name):
     # 获取当前文件的目录
     current_dir = os.path.dirname(os.path.abspath(__file__))
     # 构建font文件夹的相对路径
-    font_dir = os.path.join(os.path.dirname(current_dir), "font")
+    font_dir = os.path.join(os.path.dirname(current_dir), "fonts")
     
     if os.path.exists(font_dir):
         # 支持的字体文件扩展名
