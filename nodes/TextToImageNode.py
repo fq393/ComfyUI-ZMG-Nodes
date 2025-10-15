@@ -142,7 +142,7 @@ class TextToImageNode:
     RETURN_TYPES = ("IMAGE",)
     RETURN_NAMES = ("image",)
     OUTPUT_IS_LIST = (False,)
-    CATEGORY = NodeCategory.IMAGE_GENERATION
+    CATEGORY = NodeCategory.IMAGE
     FUNCTION = "text_to_image"
     
     DESCRIPTION = """
