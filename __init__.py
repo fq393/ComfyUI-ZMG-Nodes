@@ -2,6 +2,7 @@ from .nodes.ApiRequestNode import *
 from .nodes.JsonParserNode import *
 from .nodes.EmptyImageNode import *
 from .nodes.LoadImageFromUrlNode import *
+from .nodes.TextToImageNode import *
 
 NODE_CONFIG = {
     # Network nodes
@@ -12,6 +13,7 @@ NODE_CONFIG = {
     
     # Image processing nodes
     "LoadImageFromUrlNode": {"class": LoadImageFromUrlNode, "name": "LoadImageFromUrlNode"},
+    "TextToImageNode": {"class": TextToImageNode, "name": "Text To Image"},
     
     # Utility nodes
     "Empty Image Node": {"class": EmptyImageNode, "name": "Empty Image Node"},
