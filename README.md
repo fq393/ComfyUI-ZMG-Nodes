@@ -52,6 +52,17 @@ ComfyUI-ZMG-Nodes是一个专为ComfyUI设计的自定义节点插件包，包�
   - **自定义超时**：可配置网络请求超时时间
   - **输入验证**：完整的URL和参数验证机制
 
+- **Text To Image Node** - 智能文本转图像节点
+  - **智能文本换行**：自动处理长文本，支持按单词和字符级别的智能换行
+  - **宽度限制控制**：图片最大宽度限制为1024像素，确保输出尺寸合理
+  - **换行符保持**：完整保留文本中的原有换行符，在图片中正确显示
+  - **多语言支持**：完整支持中文、英文、数字和特殊字符的渲染
+  - **自定义字体**：支持从fonts目录选择字体文件（.ttf、.ttc、.otf格式）
+  - **颜色自定义**：支持文本颜色和背景颜色的自由配置（十六进制格式）
+  - **动态画布**：根据文本内容和换行情况自动调整画布大小
+  - **行间距控制**：可调节行间距倍数，优化文本显示效果
+  - **边距设置**：可自定义文本边距，确保文本不贴边显示
+
 ### 🔧 工具类节点 (ZMGNodes/utils)
 - **Empty Image Node** - 增强型空图像节点
   - 支持多种输出模式（无输出、空张量、占位符图像）
@@ -100,6 +111,14 @@ ComfyUI-ZMG-Nodes/
 ```
 
 ## 🔧 最新更新
+
+### v1.3.2 (2024-12-19)
+- **TextToImageNode智能换行优化**：新增文本自动换行功能，支持长文本的智能处理
+- **宽度限制控制**：图片最大宽度限制为1024像素，防止图片过宽影响显示效果
+- **换行符保持功能**：完整保留文本中的原有换行符，确保在图片中正确显示多行文本
+- **智能文本分割**：支持按单词和字符级别的智能换行，优化中英文混合文本的显示效果
+- **动态画布调整**：根据换行后的文本内容自动调整画布尺寸，确保所有文本都能完整显示
+- **性能优化**：改进文本测量算法，提升长文本处理的性能和准确性
 
 ### v1.3.1 (2024-12-19)
 - **新增TextToImageNode文本转图像节点**：支持将文本转换为图像，适用于生成文字标签、水印等场景
@@ -217,6 +236,35 @@ urls = "/view?filename=image.png&subfolder=&type=input"
 keep_alpha_channel = True    # 保留Alpha通道
 output_mode = False         # 列表输出模式
 timeout = 30               # 30秒超时
+```
+
+### Text To Image Node
+```python
+# 基本文本转图像
+text = "Hello World\n你好世界"
+font_size = 48
+text_color = "#000000"      # 黑色文字
+background_color = "#FFFFFF" # 白色背景
+
+# 长文本自动换行示例
+long_text = """这是一段很长的文本内容，包含了大约500个字符。当文本内容超过图片的最大宽度限制（1024像素）时，系统会自动进行换行处理。
+换行处理支持按单词分割（英文）和按字符分割（中文），确保文本在图片中能够完整且美观地显示。
+This is a very long text content that contains approximately 500 characters. When the text content exceeds the maximum width limit of the image (1024 pixels), the system will automatically perform line wrapping."""
+
+# 自定义字体和样式
+font_name = "Songti"        # 使用宋体字体
+font_size = 36
+padding = 30                # 边距30像素
+line_spacing = 1.5          # 行间距1.5倍
+
+# 多行文本保持换行符
+multiline_text = """第一行文本
+第二行文本
+第三行文本
+
+这里有一个空行
+
+最后一行文本"""
 ```
 
 ### Empty Image Node

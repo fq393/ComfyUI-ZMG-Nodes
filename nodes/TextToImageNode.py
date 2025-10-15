@@ -168,6 +168,82 @@ class TextToImageNode:
     • image: 生成的图片（IMAGE格式）
     """
     
+    def wrap_text(self, text, font, max_width):
+        """
+        文本自动换行处理
+        
+        Args:
+            text: 输入文本
+            font: 字体对象
+            max_width: 最大宽度（像素）
+            
+        Returns:
+            list: 换行后的文本行列表
+        """
+        # 创建临时图像来测量文本
+        temp_img = Image.new('RGB', (1, 1))
+        temp_draw = ImageDraw.Draw(temp_img)
+        
+        # 首先按原有换行符分割
+        original_lines = text.split('\n')
+        wrapped_lines = []
+        
+        for line in original_lines:
+            if line.strip() == "":
+                # 保留空行
+                wrapped_lines.append("")
+                continue
+                
+            # 检查当前行是否需要换行
+            bbox = temp_draw.textbbox((0, 0), line, font=font)
+            line_width = bbox[2] - bbox[0]
+            
+            if line_width <= max_width:
+                # 不需要换行
+                wrapped_lines.append(line)
+            else:
+                # 需要换行处理
+                words = line.split(' ')
+                current_line = ""
+                
+                for word in words:
+                    # 测试添加当前单词后的宽度
+                    test_line = current_line + (" " if current_line else "") + word
+                    bbox = temp_draw.textbbox((0, 0), test_line, font=font)
+                    test_width = bbox[2] - bbox[0]
+                    
+                    if test_width <= max_width:
+                        current_line = test_line
+                    else:
+                        # 当前行已满，开始新行
+                        if current_line:
+                            wrapped_lines.append(current_line)
+                            current_line = word
+                        else:
+                            # 单个单词就超过最大宽度，需要按字符拆分
+                            if word:
+                                char_line = ""
+                                for char in word:
+                                    test_char_line = char_line + char
+                                    bbox = temp_draw.textbbox((0, 0), test_char_line, font=font)
+                                    test_char_width = bbox[2] - bbox[0]
+                                    
+                                    if test_char_width <= max_width:
+                                        char_line = test_char_line
+                                    else:
+                                        if char_line:
+                                            wrapped_lines.append(char_line)
+                                        char_line = char
+                                
+                                if char_line:
+                                    current_line = char_line
+                
+                # 添加最后一行
+                if current_line:
+                    wrapped_lines.append(current_line)
+        
+        return wrapped_lines
+
     def text_to_image(self, text, font_name, font_size, text_color, background_color, padding, line_spacing):
         try:
             # 处理空文本
@@ -189,8 +265,11 @@ class TextToImageNode:
                 print(f"字体加载失败: {e}, 使用默认字体")
                 font = ImageFont.load_default()
             
-            # 分割文本为行
-            lines = text.split('\n')
+            # 设置最大宽度限制（1024像素减去两倍边距）
+            max_text_width = 1024 - (padding * 2)
+            
+            # 自动换行处理
+            lines = self.wrap_text(text, font, max_text_width)
             
             # 创建临时图像来测量文本尺寸
             temp_img = Image.new('RGB', (1, 1), bg_rgb)
@@ -218,7 +297,7 @@ class TextToImageNode:
             
             # 计算总高度
             if line_heights:
-                base_line_height = max(line_heights)
+                base_line_height = max(line_heights) if line_heights else font_size
                 total_height = base_line_height * len(lines)
                 # 添加行间距
                 if len(lines) > 1:
@@ -227,7 +306,7 @@ class TextToImageNode:
                 total_height = font_size
             
             # 计算画布尺寸
-            canvas_width = max_width + (padding * 2)
+            canvas_width = min(max_width + (padding * 2), 1024)  # 限制最大宽度为1024
             canvas_height = int(total_height) + (padding * 2)
             
             # 确保最小尺寸
@@ -248,7 +327,8 @@ class TextToImageNode:
                 
                 # 移动到下一行
                 if i < len(lines) - 1:
-                    y_offset += int(line_heights[i] * line_spacing)
+                    line_height = line_heights[i] if i < len(line_heights) else font_size
+                    y_offset += int(line_height * line_spacing)
             
             # 转换为tensor
             image_tensor = pil2tensor(image)
