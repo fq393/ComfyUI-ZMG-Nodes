@@ -119,7 +119,7 @@ class TextToImageNode:
                     "placeholder": "背景颜色 (十六进制，如 #FFFFFF)"
                 }),
                 "padding": ("INT", {
-                    "default": 20,
+                    "default": 30,
                     "min": 0,
                     "max": 100,
                     "step": 1,
@@ -170,7 +170,7 @@ class TextToImageNode:
     
     def wrap_text(self, text, font, max_width):
         """
-        文本自动换行处理
+        文本自动换行处理 - 智能处理中英数字特殊字符混合
         
         Args:
             text: 输入文本
@@ -180,6 +180,8 @@ class TextToImageNode:
         Returns:
             list: 换行后的文本行列表
         """
+        import re
+        
         # 创建临时图像来测量文本
         temp_img = Image.new('RGB', (1, 1))
         temp_draw = ImageDraw.Draw(temp_img)
@@ -202,28 +204,31 @@ class TextToImageNode:
                 # 不需要换行
                 wrapped_lines.append(line)
             else:
-                # 需要换行处理
-                words = line.split(' ')
+                # 需要换行处理 - 智能分割文本
+                # 将文本分割为中文字符、英文单词、数字、特殊字符等单元
+                tokens = re.findall(r'[\u4e00-\u9fff]|[a-zA-Z]+|[0-9]+|[^\u4e00-\u9fffa-zA-Z0-9\s]|\s+', line)
+                
                 current_line = ""
                 
-                for word in words:
-                    # 测试添加当前单词后的宽度
-                    test_line = current_line + (" " if current_line else "") + word
+                for token in tokens:
+                    # 测试添加当前token后的宽度
+                    test_line = current_line + token
                     bbox = temp_draw.textbbox((0, 0), test_line, font=font)
                     test_width = bbox[2] - bbox[0]
                     
                     if test_width <= max_width:
+                        # 可以添加当前token
                         current_line = test_line
                     else:
-                        # 当前行已满，开始新行
+                        # 当前行已满
                         if current_line:
                             wrapped_lines.append(current_line)
-                            current_line = word
+                            current_line = token
                         else:
-                            # 单个单词就超过最大宽度，需要按字符拆分
-                            if word:
+                            # 单个token就超过最大宽度，需要按字符拆分
+                            if len(token) > 1:
                                 char_line = ""
-                                for char in word:
+                                for char in token:
                                     test_char_line = char_line + char
                                     bbox = temp_draw.textbbox((0, 0), test_char_line, font=font)
                                     test_char_width = bbox[2] - bbox[0]
@@ -237,6 +242,10 @@ class TextToImageNode:
                                 
                                 if char_line:
                                     current_line = char_line
+                            else:
+                                # 单个字符就超过最大宽度（极少见情况）
+                                wrapped_lines.append(token)
+                                current_line = ""
                 
                 # 添加最后一行
                 if current_line:
@@ -321,8 +330,8 @@ class TextToImageNode:
             y_offset = padding
             for i, line in enumerate(lines):
                 if line.strip() != "":
-                    # 计算居中位置
-                    x_offset = (canvas_width - line_widths[i]) // 2
+                    # 左对齐，保持左边距
+                    x_offset = padding
                     draw.text((x_offset, y_offset), line, fill=text_rgb, font=font)
                 
                 # 移动到下一行
