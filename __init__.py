@@ -3,6 +3,7 @@ from .nodes.JsonParserNode import *
 from .nodes.EmptyImageNode import *
 from .nodes.LoadImageFromUrlNode import *
 from .nodes.TextToImageNode import *
+from .nodes.SaveVideoRGBA import *
 
 NODE_CONFIG = {
     # Network nodes
@@ -14,6 +15,9 @@ NODE_CONFIG = {
     # Image processing nodes
     "LoadImageFromUrlNode": {"class": LoadImageFromUrlNode, "name": "LoadImageFromUrlNode"},
     "TextToImageNode": {"class": TextToImageNode, "name": "Text To Image"},
+    
+    # Video processing nodes
+    "SaveVideoRGBA": {"class": SaveVideoRGBA, "name": "Save Video (RGBA)"},
     
     # Utility nodes
     "Empty Image Node": {"class": EmptyImageNode, "name": "Empty Image Node"},
