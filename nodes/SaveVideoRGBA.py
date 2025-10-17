@@ -257,16 +257,18 @@ class SaveVideoRGBA(io.ComfyNode):
                 filename_prefix, output_dir, width, height
             )
             
-            # 使用用户选择的格式和编解码器
-            format_str = format
-            codec_str = codec
-            
-            # 如果是auto，则根据alpha通道自动选择
-            if format_str == "auto":
+            # 确定最终使用的格式和编解码器
+            if format == "auto":
                 format_str = RGBAVideoContainer.get_default_for_alpha(has_alpha)
-            if codec_str == "auto":
+            else:
+                format_str = format
+                
+            if codec == "auto":
                 codec_str = RGBAVideoCodec.get_default_for_alpha(has_alpha)
+            else:
+                codec_str = codec
             
+            # 生成文件扩展名
             file_ext = RGBAVideoContainer.get_extension(format_str)
             file = f"{filename}_{counter:05}_.{file_ext}"
             
@@ -332,9 +334,21 @@ class RGBAVideoFromComponents(VideoInput):
         else:
             format_str = format
 
-        # 处理编解码器
+        # 处理编解码器 - 考虑格式兼容性
         if codec == "auto":
-            codec_str = RGBAVideoCodec.get_default_for_alpha(has_alpha)
+            # 根据格式和alpha通道选择最佳编解码器
+            if format_str == "mov":
+                # MOV格式优先使用ProRes编解码器
+                codec_str = RGBAVideoCodec.PRORES.value if has_alpha else RGBAVideoCodec.H264.value
+            elif format_str == "webm":
+                # WebM格式使用VP9编解码器
+                codec_str = RGBAVideoCodec.VP9.value
+            elif format_str == "mp4":
+                # MP4格式使用H264编解码器
+                codec_str = RGBAVideoCodec.H264.value
+            else:
+                # 默认选择
+                codec_str = RGBAVideoCodec.get_default_for_alpha(has_alpha)
         else:
             codec_str = codec
 
