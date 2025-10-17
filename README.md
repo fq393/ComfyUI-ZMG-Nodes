@@ -63,6 +63,18 @@ ComfyUI-ZMG-Nodes是一个专为ComfyUI设计的自定义节点插件包，包�
   - **行间距控制**：可调节行间距倍数，优化文本显示效果
   - **边距设置**：可自定义文本边距，确保文本不贴边显示
 
+- **Save Video RGBA Node** - 高级RGBA视频保存节点
+  - **多格式支持**：支持MP4、WebM、MOV等主流视频容器格式
+  - **多编解码器**：支持H.264、VP9、ProRes等编解码器
+  - **Alpha通道处理**：完整支持透明通道的保存和处理
+  - **智能格式选择**：auto模式根据是否有alpha通道自动选择最佳格式
+  - **格式验证**：智能验证格式和编解码器的兼容性组合
+  - **音频支持**：可选的音频轨道添加功能
+  - **预览模式**：支持预览模式快速查看效果
+  - **文件名自定义**：支持自定义文件名前缀和格式化
+  - **性能优化**：高效的视频编码和内存管理
+  - **错误处理**：完善的错误处理和状态反馈机制
+
 ### 🔧 工具类节点 (ZMGNodes/utils)
 - **Empty Image Node** - 增强型空图像节点
   - 支持多种输出模式（无输出、空张量、占位符图像）
@@ -101,6 +113,7 @@ ComfyUI-ZMG-Nodes/
 │   ├── JsonParserNode.py       # JSON解析节点
 │   ├── LoadImageFromUrlNode.py # 从URL加载图像节点
 │   ├── TextToImageNode.py      # 文本转图像节点
+│   ├── SaveVideoRGBA.py        # RGBA视频保存节点
 │   ├── EmptyImageNode.py       # 增强型空图像节点
 │   └── config/                 # 配置文件目录
 │       └── NodeCategory.py     # 节点分类配置
