@@ -124,6 +124,18 @@ class SaveVideoRGBA(io.ComfyNode):
                     default="video/ComfyUI", 
                     tooltip="文件保存前缀。可包含格式化信息如 %date:yyyy-MM-dd% 或 %Empty Latent Image.width%"
                 ),
+                io.Combo.Input(
+                    "format",
+                    default="auto",
+                    options=RGBAVideoContainer.as_input(),
+                    tooltip="视频容器格式。auto会根据是否有alpha通道自动选择"
+                ),
+                io.Combo.Input(
+                    "codec",
+                    default="auto", 
+                    options=RGBAVideoCodec.as_input(),
+                    tooltip="视频编解码器。auto会根据是否有alpha通道自动选择"
+                ),
                 io.Boolean.Input("only_preview", default=False),
                 io.Audio.Input("audio", optional=True),
             ],
@@ -135,13 +147,17 @@ class SaveVideoRGBA(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, images: torch.Tensor, fps: float, filename_prefix: str, 
-                only_preview: bool, audio: Optional[Dict[str, Any]] = None, **kwargs) -> io.NodeOutput:
+    def execute(cls, images: torch.Tensor, fps: float, filename_prefix: str, format: str,
+                codec: str, only_preview: bool, audio: Optional[Dict[str, Any]] = None, **kwargs) -> io.NodeOutput:
         """执行视频保存操作"""
         try:
             # 获取图像尺寸和通道信息
             B, H, W, C = images.shape
             has_alpha = C == 4
+
+            # 验证格式和编解码器组合的有效性
+            if format != "auto" and codec != "auto":
+                VideoFormatConfig.validate_format_codec_combination(format, codec, has_alpha)
 
             # 调整图像尺寸以确保能被2整除（视频编码要求）
             images = cls._resize_images_if_needed(images, divisible_by=2)
@@ -165,7 +181,7 @@ class SaveVideoRGBA(io.ComfyNode):
                     results.append(preview_result)
 
             if not only_preview:
-                save_result = cls._save_final(video, filename_prefix, width, height, has_alpha)
+                save_result = cls._save_final(video, filename_prefix, width, height, has_alpha, format, codec)
                 if save_result:
                     results.append(save_result)
 
@@ -230,7 +246,7 @@ class SaveVideoRGBA(io.ComfyNode):
 
     @staticmethod
     def _save_final(video: 'RGBAVideoFromComponents', filename_prefix: str, 
-                   width: int, height: int, has_alpha: bool) -> Optional[ui.SavedResult]:
+                   width: int, height: int, has_alpha: bool, format: str, codec: str) -> Optional[ui.SavedResult]:
         """保存最终视频"""
         try:
             output_dir = folder_paths.get_output_directory()
@@ -239,21 +255,28 @@ class SaveVideoRGBA(io.ComfyNode):
                 filename_prefix, output_dir, width, height
             )
             
-            format_str = 'mov' if has_alpha else 'auto'
-            codec = RGBAVideoCodec.get_default_for_alpha(has_alpha)
+            # 使用用户选择的格式和编解码器
+            format_str = format
+            codec_str = codec
+            
+            # 如果是auto，则根据alpha通道自动选择
+            if format_str == "auto":
+                format_str = RGBAVideoContainer.get_default_for_alpha(has_alpha)
+            if codec_str == "auto":
+                codec_str = RGBAVideoCodec.get_default_for_alpha(has_alpha)
+            
             file_ext = RGBAVideoContainer.get_extension(format_str)
             file = f"{filename}_{counter:05}_.{file_ext}"
             
             video.save_to(
                 path=os.path.join(full_output_folder, file),
                 format=format_str,
-                codec=codec,
+                codec=codec_str,
                 metadata=None,
             )
 
-            # 只有非alpha视频才添加到输出结果
-            if not has_alpha:
-                return ui.SavedResult(file, subfolder, io.FolderType.output)
+            # 返回保存结果
+            return ui.SavedResult(file, subfolder, io.FolderType.output)
                 
         except Exception as e:
             print(f"保存最终视频失败: {str(e)}")
