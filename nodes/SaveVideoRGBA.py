@@ -128,13 +128,15 @@ class SaveVideoRGBA(io.ComfyNode):
                     "format",
                     default="auto",
                     options=RGBAVideoContainer.as_input(),
-                    tooltip="视频容器格式。auto会根据是否有alpha通道自动选择"
+                    tooltip="视频容器格式。auto会根据是否有alpha通道自动选择",
+                    optional=True
                 ),
                 io.Combo.Input(
                     "codec",
                     default="auto", 
                     options=RGBAVideoCodec.as_input(),
-                    tooltip="视频编解码器。auto会根据是否有alpha通道自动选择"
+                    tooltip="视频编解码器。auto会根据是否有alpha通道自动选择",
+                    optional=True
                 ),
                 io.Boolean.Input("only_preview", default=False),
                 io.Audio.Input("audio", optional=True),
@@ -147,8 +149,8 @@ class SaveVideoRGBA(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, images: torch.Tensor, fps: float, filename_prefix: str, format: str,
-                codec: str, only_preview: bool, audio: Optional[Dict[str, Any]] = None, **kwargs) -> io.NodeOutput:
+    def execute(cls, images: torch.Tensor, fps: float, filename_prefix: str, format: str = "auto",
+                codec: str = "auto", only_preview: bool = False, audio: Optional[Dict[str, Any]] = None, **kwargs) -> io.NodeOutput:
         """执行视频保存操作"""
         try:
             # 获取图像尺寸和通道信息
