@@ -134,7 +134,10 @@ class OSSUploadNode:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "input_data": ("*", {"tooltip": "支持任意类型输入：图片、视频、音频、文件等"}),
+                "input_mode": (["data", "file_path"], {
+                    "default": "data",
+                    "tooltip": "输入模式：data=直接数据输入，file_path=文件路径输入"
+                }),
                 "filename": ("STRING", {
                     "default": "upload_file",
                     "tooltip": "上传文件名（不包含扩展名，系统会自动添加）"
@@ -165,6 +168,11 @@ class OSSUploadNode:
                 })
             },
             "optional": {
+                "input_data": ("*", {"tooltip": "直接数据输入：图片、视频、音频、文件等（input_mode=data时使用）"}),
+                "file_path": ("STRING", {
+                    "default": "",
+                    "tooltip": "文件路径：支持相对路径（相对于ComfyUI目录）或绝对路径（input_mode=file_path时使用）"
+                }),
                 "content_type": ("STRING", {
                     "default": "",
                     "tooltip": "文件MIME类型（留空自动检测）"
@@ -182,15 +190,16 @@ class OSSUploadNode:
     FUNCTION = "upload_to_oss"
     
     DESCRIPTION = """
-阿里云OSS上传节点 - 支持任意类型文件上传
+阿里云OSS上传节点 - 支持多种输入模式的文件上传
 
 功能特点：
-• 支持任意类型输入：
-  - 图片张量 (IMAGE)
-  - 视频文件 (VIDEO)
-  - 音频文件 (AUDIO)
-  - 文本数据 (STRING)
-  - 二进制文件数据
+• 支持两种输入模式：
+  - data模式：直接数据输入（图片张量、视频、音频、文本等）
+  - file_path模式：文件路径输入（支持相对路径和绝对路径）
+• 文件路径支持：
+  - 相对路径：相对于ComfyUI目录（如：output/fq393.mp3）
+  - 绝对路径：完整文件路径（如：/Users/user/files/video.mp4）
+  - 自动文件类型检测和扩展名处理
 • 自动文件类型检测和MIME类型设置
 • 智能文件路径生成（基于时间戳和哈希）
 • 支持自定义域名和基础路径
@@ -221,9 +230,10 @@ class OSSUploadNode:
 • 构建云端媒体处理流水线
 """
     
-    def upload_to_oss(self, input_data: Any, filename: str, access_key: str, secret_key: str,
+    def upload_to_oss(self, input_mode: str, filename: str, access_key: str, secret_key: str,
                      end_point: str, bucket_name: str, domain: str = "", base_path: str = "",
-                     content_type: str = "", enable_upload: bool = True) -> Tuple[str, str, str, int, bool, str]:
+                     input_data: Any = None, file_path: str = "", content_type: str = "", 
+                     enable_upload: bool = True) -> Tuple[str, str, str, int, bool, str]:
         """上传数据到OSS"""
         
         if not enable_upload:
@@ -244,10 +254,25 @@ class OSSUploadNode:
                 error_msg = "OSS配置不完整，请检查必填字段"
                 return ("", "", json.dumps({"error": error_msg}), 0, False, error_msg)
             
-            # 转换输入数据为字节
-            file_data, actual_filename, detected_content_type = self._convert_input_to_bytes(
-                input_data, filename, content_type
-            )
+            # 根据输入模式处理数据
+            if input_mode == "file_path":
+                # 文件路径模式
+                if not file_path:
+                    error_msg = "文件路径模式下必须提供file_path参数"
+                    return ("", "", json.dumps({"error": error_msg}), 0, False, error_msg)
+                
+                file_data, actual_filename, detected_content_type = self._load_file_from_path(
+                    file_path, filename, content_type
+                )
+            else:
+                # 直接数据输入模式
+                if input_data is None:
+                    error_msg = "数据输入模式下必须提供input_data参数"
+                    return ("", "", json.dumps({"error": error_msg}), 0, False, error_msg)
+                
+                file_data, actual_filename, detected_content_type = self._convert_input_to_bytes(
+                    input_data, filename, content_type
+                )
             
             # 创建上传器并上传
             uploader = OSSUploader(config)
@@ -271,6 +296,54 @@ class OSSUploadNode:
                 'upload_time': datetime.now().isoformat()
             }
             return ("", "", json.dumps(error_result, ensure_ascii=False, indent=2), 0, False, error_msg)
+    
+    def _load_file_from_path(self, file_path: str, filename: str, content_type: str) -> Tuple[bytes, str, str]:
+        """从文件路径加载文件数据"""
+        try:
+            # 处理相对路径和绝对路径
+            if not os.path.isabs(file_path):
+                # 相对路径，相对于ComfyUI目录
+                # 假设ComfyUI目录是当前工作目录的上级目录
+                comfyui_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                full_path = os.path.join(comfyui_dir, file_path)
+            else:
+                # 绝对路径
+                full_path = file_path
+            
+            # 检查文件是否存在
+            if not os.path.exists(full_path):
+                raise FileNotFoundError(f"文件不存在: {full_path}")
+            
+            # 读取文件数据
+            with open(full_path, 'rb') as f:
+                file_data = f.read()
+            
+            # 获取文件扩展名和MIME类型
+            file_ext = os.path.splitext(full_path)[1].lower()
+            if not file_ext:
+                # 如果没有扩展名，从原始文件名获取
+                original_ext = os.path.splitext(os.path.basename(full_path))[1].lower()
+                file_ext = original_ext
+            
+            # 生成实际文件名
+            if filename and filename != "upload_file":
+                actual_filename = f"{filename}{file_ext}"
+            else:
+                # 使用原始文件名
+                actual_filename = os.path.basename(full_path)
+            
+            # 检测MIME类型
+            if content_type:
+                detected_content_type = content_type
+            else:
+                detected_content_type, _ = mimetypes.guess_type(full_path)
+                if not detected_content_type:
+                    detected_content_type = "application/octet-stream"
+            
+            return file_data, actual_filename, detected_content_type
+            
+        except Exception as e:
+            raise Exception(f"加载文件失败: {str(e)}")
     
     def _convert_input_to_bytes(self, input_data: Any, filename: str, content_type: str) -> Tuple[bytes, str, str]:
         """将输入数据转换为字节数据"""
