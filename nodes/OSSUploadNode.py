@@ -172,7 +172,7 @@ class OSSUploadNode:
                     "tooltip": "基础路径前缀（可选，如：uploads）"
                 }),
                 "video_fps": ("FLOAT", {
-                    "default": 30.0,
+                    "default": 16.0,
                     "min": 1.0,
                     "max": 120.0,
                     "step": 0.1,
