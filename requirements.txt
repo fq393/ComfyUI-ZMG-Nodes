@@ -12,6 +12,9 @@ torch>=2.0.0
 # 云存储 (OSSUploadNode需要)
 oss2>=2.18.0
 
+# 音频处理 (OSSUploadNode MP3转换需要)
+pydub>=0.25.0
+
 # 注意：以下模块由ComfyUI环境提供，无需单独安装
 # - json (Python内置)
 # - re (Python内置) 

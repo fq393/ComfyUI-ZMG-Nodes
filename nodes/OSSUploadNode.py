@@ -139,14 +139,6 @@ class OSSUploadNode:
         return {
             "required": {
                 "input_data": (["IMAGE", "AUDIO", "VIDEO", "STRING", "*"], {"tooltip": "直接数据输入：图片、视频、音频、文件等"}),
-                "filename": ("STRING", {
-                    "default": "upload_file",
-                    "tooltip": "上传文件名（可包含扩展名如：audio.mp3，留空则自动生成随机名）"
-                }),
-                "use_random_name": ("BOOLEAN", {
-                    "default": False,
-                    "tooltip": "使用随机生成的文件名（基于时间戳和哈希）"
-                }),
                 "access_key": ("STRING", {
                     "default": "",
                     "tooltip": "阿里云OSS Access Key（请输入您的密钥）"
@@ -177,10 +169,6 @@ class OSSUploadNode:
                     "max": 120.0,
                     "step": 0.1,
                     "tooltip": "视频帧率（当输入多张图片时用于合成视频）"
-                }),
-                "video_format": (["mp4", "avi", "mov", "mkv"], {
-                    "default": "mp4",
-                    "tooltip": "视频输出格式（当输入多张图片时用于合成视频）"
                 })
             },
             "optional": {
@@ -236,9 +224,9 @@ class OSSUploadNode:
 • 构建云端媒体处理流水线
 """
     
-    def upload_to_oss(self, filename: str, use_random_name: bool, access_key: str, secret_key: str,
+    def upload_to_oss(self, access_key: str, secret_key: str,
                      end_point: str, bucket_name: str, domain: str = "", base_path: str = "",
-                     video_fps: float = 30.0, video_format: str = "mp4",
+                     video_fps: float = 30.0,
                      input_data: Any = None, content_type: str = "", 
                      enable_upload: bool = True) -> Tuple[str, str, str, int, bool, str]:
         """上传数据到OSS"""
@@ -261,23 +249,14 @@ class OSSUploadNode:
                 error_msg = "OSS配置不完整，请检查必填字段"
                 return ("", "", json.dumps({"error": error_msg}), 0, False, error_msg)
             
-            # 处理文件名（支持随机名和扩展名）
-            final_filename = filename
-            if use_random_name:
-                # 如果filename包含扩展名，提取扩展名
-                if '.' in filename:
-                    extension = filename.split('.')[-1]
-                    final_filename = self._generate_random_filename(extension)
-                else:
-                    final_filename = self._generate_random_filename()
-            
             # 处理数据输入
             if input_data is None:
                 error_msg = "必须提供input_data参数"
                 return ("", "", json.dumps({"error": error_msg}), 0, False, error_msg)
             
+            # 根据输入类型自动生成文件名和后缀
             file_data, actual_filename, detected_content_type = self._convert_input_to_bytes(
-                input_data, final_filename, content_type, video_fps, video_format
+                input_data, content_type, video_fps
             )
             
             # 创建上传器并上传
@@ -303,7 +282,7 @@ class OSSUploadNode:
             }
             return ("", "", json.dumps(error_result, ensure_ascii=False, indent=2), 0, False, error_msg)
     
-    def _images_to_video(self, images: torch.Tensor, fps: float = 30.0, video_format: str = "mp4") -> bytes:
+    def _images_to_video(self, images: torch.Tensor, fps: float = 30.0) -> bytes:
         """将图片序列转换为视频"""
         try:
             import cv2
@@ -328,21 +307,12 @@ class OSSUploadNode:
         
         # 创建临时视频文件
         import tempfile
-        with tempfile.NamedTemporaryFile(suffix=f'.{video_format}', delete=False) as temp_file:
+        with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as temp_file:
             temp_path = temp_file.name
         
         try:
-            # 设置视频编码器
-            if video_format.lower() == 'mp4':
-                fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-            elif video_format.lower() == 'avi':
-                fourcc = cv2.VideoWriter_fourcc(*'XVID')
-            elif video_format.lower() == 'mov':
-                fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-            elif video_format.lower() == 'mkv':
-                fourcc = cv2.VideoWriter_fourcc(*'XVID')
-            else:
-                fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+            # 设置视频编码器为mp4
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
             
             # 创建视频写入器
             # OpenCV使用BGR格式，需要转换
@@ -395,7 +365,7 @@ class OSSUploadNode:
         return random_name
     
 
-    def _convert_input_to_bytes(self, input_data: Any, filename: str, content_type: str, video_fps: float = 30.0, video_format: str = "mp4") -> Tuple[bytes, str, str]:
+    def _convert_input_to_bytes(self, input_data: Any, content_type: str, video_fps: float = 30.0) -> Tuple[bytes, str, str]:
         """将输入数据转换为字节数据"""
         
         # 处理AUDIO类型数据（ComfyUI音频格式）
@@ -404,9 +374,11 @@ class OSSUploadNode:
             waveform = input_data['waveform']
             sample_rate = input_data['sample_rate']
             
-            # 转换音频tensor为WAV格式
-            import wave
-            buffer = io.BytesIO()
+            try:
+                from pydub import AudioSegment
+                import wave
+            except ImportError:
+                raise ImportError("需要安装pydub来支持MP3音频生成功能: pip install pydub")
             
             # 确保音频数据在正确范围内
             if isinstance(waveform, torch.Tensor):
@@ -427,20 +399,24 @@ class OSSUploadNode:
             if audio_data.dtype == np.float32 or audio_data.dtype == np.float64:
                 audio_data = (audio_data * 32767).astype(np.int16)
             
-            # 写入WAV文件
-            with wave.open(buffer, 'wb') as wav_file:
+            # 先创建WAV格式的音频段
+            wav_buffer = io.BytesIO()
+            with wave.open(wav_buffer, 'wb') as wav_file:
                 wav_file.setnchannels(1)  # 单声道
                 wav_file.setsampwidth(2)  # 16位
                 wav_file.setframerate(sample_rate)
                 wav_file.writeframes(audio_data.tobytes())
             
-            file_data = buffer.getvalue()
-            # 如果filename已包含扩展名，直接使用；否则添加.wav
-            if '.' in filename:
-                actual_filename = filename
-            else:
-                actual_filename = f"{filename}.wav"
-            detected_content_type = content_type or "audio/wav"
+            # 转换为MP3格式
+            wav_buffer.seek(0)
+            audio_segment = AudioSegment.from_wav(wav_buffer)
+            mp3_buffer = io.BytesIO()
+            audio_segment.export(mp3_buffer, format="mp3")
+            
+            file_data = mp3_buffer.getvalue()
+            # 自动生成随机文件名，固定使用.mp3后缀
+            actual_filename = self._generate_random_filename("mp3")
+            detected_content_type = content_type or "audio/mp3"
             
         # 处理图片张量
         elif isinstance(input_data, torch.Tensor):
@@ -450,13 +426,10 @@ class OSSUploadNode:
                 # 如果有多张图片（batch_size >= 2），生成视频
                 if batch_size >= 2:
                     try:
-                        file_data = self._images_to_video(input_data, video_fps, video_format)
-                        # 如果filename已包含扩展名，直接使用；否则添加视频扩展名
-                        if '.' in filename:
-                            actual_filename = filename
-                        else:
-                            actual_filename = f"{filename}.{video_format}"
-                        detected_content_type = content_type or f"video/{video_format}"
+                        file_data = self._images_to_video(input_data, video_fps)
+                        # 自动生成随机文件名，固定使用.mp4后缀
+                        actual_filename = self._generate_random_filename("mp4")
+                        detected_content_type = content_type or "video/mp4"
                     except Exception as e:
                         # 如果视频生成失败，回退到处理第一张图片
                         print(f"视频生成失败，回退到单图片模式: {str(e)}")
@@ -475,18 +448,14 @@ class OSSUploadNode:
                     
                     image = Image.fromarray(image_array)
                     
-                    # 保存为字节流
+                    # 保存为PNG格式
                     buffer = io.BytesIO()
-                    image_format = 'PNG' if image.mode == 'RGBA' else 'JPEG'
-                    image.save(buffer, format=image_format)
+                    image.save(buffer, format='PNG')
                     file_data = buffer.getvalue()
                     
-                    # 如果filename已包含扩展名，直接使用；否则添加图片扩展名
-                    if '.' in filename:
-                        actual_filename = filename
-                    else:
-                        actual_filename = f"{filename}.{image_format.lower()}"
-                    detected_content_type = content_type or f"image/{image_format.lower()}"
+                    # 自动生成随机文件名，固定使用.png后缀
+                    actual_filename = self._generate_random_filename("png")
+                    detected_content_type = content_type or "image/png"
                     
             elif len(input_data.shape) == 3:  # 单张图片 [H, W, C]
                 image_tensor = input_data
@@ -498,18 +467,14 @@ class OSSUploadNode:
                 
                 image = Image.fromarray(image_array)
                 
-                # 保存为字节流
+                # 保存为PNG格式
                 buffer = io.BytesIO()
-                image_format = 'PNG' if image.mode == 'RGBA' else 'JPEG'
-                image.save(buffer, format=image_format)
+                image.save(buffer, format='PNG')
                 file_data = buffer.getvalue()
                 
-                # 如果filename已包含扩展名，直接使用；否则添加图片扩展名
-                if '.' in filename:
-                    actual_filename = filename
-                else:
-                    actual_filename = f"{filename}.{image_format.lower()}"
-                detected_content_type = content_type or f"image/{image_format.lower()}"
+                # 自动生成随机文件名，固定使用.png后缀
+                actual_filename = self._generate_random_filename("png")
+                detected_content_type = content_type or "image/png"
                 
             elif len(input_data.shape) == 2:  # 可能是音频数据 [channels, samples] 或 [samples, channels]
                 # 尝试作为音频处理
@@ -542,11 +507,8 @@ class OSSUploadNode:
                     wav_file.writeframes(audio_data.tobytes())
                 
                 file_data = buffer.getvalue()
-                # 如果filename已包含扩展名，直接使用；否则添加.wav
-                if '.' in filename:
-                    actual_filename = filename
-                else:
-                    actual_filename = f"{filename}.wav"
+                # 自动生成随机文件名，固定使用.wav后缀
+                actual_filename = self._generate_random_filename("wav")
                 detected_content_type = content_type or "audio/wav"
             else:
                 raise ValueError(f"不支持的张量形状: {input_data.shape}")
@@ -554,17 +516,15 @@ class OSSUploadNode:
         # 处理字符串数据
         elif isinstance(input_data, str):
             file_data = input_data.encode('utf-8')
-            # 如果filename已包含扩展名，直接使用；否则添加.txt
-            if '.' in filename:
-                actual_filename = filename
-            else:
-                actual_filename = f"{filename}.txt"
+            # 自动生成随机文件名，固定使用.txt后缀
+            actual_filename = self._generate_random_filename("txt")
             detected_content_type = content_type or "text/plain; charset=utf-8"
             
         # 处理字节数据
         elif isinstance(input_data, bytes):
             file_data = input_data
-            actual_filename = filename
+            # 自动生成随机文件名，使用.bin后缀
+            actual_filename = self._generate_random_filename("bin")
             detected_content_type = content_type or "application/octet-stream"
             
         # 处理numpy数组
@@ -575,33 +535,24 @@ class OSSUploadNode:
                 image_format = 'PNG' if input_data.shape[2] == 4 else 'JPEG'
                 image.save(buffer, format=image_format)
                 file_data = buffer.getvalue()
-                # 如果filename已包含扩展名，直接使用；否则添加图片扩展名
-                if '.' in filename:
-                    actual_filename = filename
-                else:
-                    actual_filename = f"{filename}.{image_format.lower()}"
+                # 自动生成随机文件名，根据图片格式确定后缀
+                actual_filename = self._generate_random_filename(image_format.lower())
                 detected_content_type = content_type or f"image/{image_format.lower()}"
             else:
                 # 其他数组数据保存为numpy格式
                 buffer = io.BytesIO()
                 np.save(buffer, input_data)
                 file_data = buffer.getvalue()
-                # 如果filename已包含扩展名，直接使用；否则添加.npy
-                if '.' in filename:
-                    actual_filename = filename
-                else:
-                    actual_filename = f"{filename}.npy"
+                # 自动生成随机文件名，固定使用.npy后缀
+                actual_filename = self._generate_random_filename("npy")
                 detected_content_type = content_type or "application/octet-stream"
                 
         # 处理列表和字典
         elif isinstance(input_data, (list, dict)):
             json_str = json.dumps(input_data, ensure_ascii=False, indent=2)
             file_data = json_str.encode('utf-8')
-            # 如果filename已包含扩展名，直接使用；否则添加.json
-            if '.' in filename:
-                actual_filename = filename
-            else:
-                actual_filename = f"{filename}.json"
+            # 自动生成随机文件名，固定使用.json后缀
+            actual_filename = self._generate_random_filename("json")
             detected_content_type = content_type or "application/json; charset=utf-8"
             
         else:
@@ -609,11 +560,8 @@ class OSSUploadNode:
             try:
                 str_data = str(input_data)
                 file_data = str_data.encode('utf-8')
-                # 如果filename已包含扩展名，直接使用；否则添加.txt
-                if '.' in filename:
-                    actual_filename = filename
-                else:
-                    actual_filename = f"{filename}.txt"
+                # 自动生成随机文件名，固定使用.txt后缀
+                actual_filename = self._generate_random_filename("txt")
                 detected_content_type = content_type or "text/plain; charset=utf-8"
             except Exception:
                 raise ValueError(f"不支持的输入数据类型: {type(input_data)}")
