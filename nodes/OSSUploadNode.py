@@ -178,7 +178,7 @@ class OSSUploadNode:
     
     RETURN_TYPES = ("STRING", "STRING", "STRING", "INT", "BOOLEAN", "STRING")
     RETURN_NAMES = ("file_url", "file_path", "upload_info", "file_size", "upload_success", "error_message")
-    CATEGORY = NodeCategory.UTILITY
+    CATEGORY = NodeCategory.UTILS
     FUNCTION = "upload_to_oss"
     
     DESCRIPTION = """

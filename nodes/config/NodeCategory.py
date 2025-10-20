@@ -18,5 +18,6 @@ class NodeCategory:
     NETWORK = f"{PREFIX}/network"      # 网络相关节点
     DATA = f"{PREFIX}/data"            # 数据处理节点  
     IMAGE = f"{PREFIX}/image"          # 图像处理节点
+    TEXT = f"{PREFIX}/text"            # 文本处理节点
     UTILS = f"{PREFIX}/utils"          # 工具类节点
     AUDIO = f"{PREFIX}/audio"          # 音频处理节点
