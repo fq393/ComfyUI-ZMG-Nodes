@@ -26,7 +26,7 @@ from .config.NodeCategory import NodeCategory
 
 
 # ============================================================================
-# 工具类和函数 - 参考自utils.py和logic.py
+# 工具类和函数
 # ============================================================================
 
 class AlwaysEqualProxy(str):
@@ -366,59 +366,127 @@ class OSSUploadNode:
             raise ValueError(f"期望4D张量 [B, H, W, C]，但得到形状: {images.shape}")
         
         batch_size, height, width, channels = images.shape
+        print(f"视频合成参数: batch_size={batch_size}, height={height}, width={width}, channels={channels}, fps={fps}")
         
         if batch_size < 2:
             raise ValueError("需要至少2张图片才能生成视频")
         
-        # 转换张量为numpy数组
+        # 转换张量为numpy数组，确保数值范围正确
         if images.dtype == torch.float32:
-            # 假设值在0-1范围内，转换为0-255
-            images_np = (images.cpu().numpy() * 255).astype(np.uint8)
+            # 检查数值范围
+            min_val, max_val = images.min().item(), images.max().item()
+            print(f"输入图片数值范围: {min_val:.3f} - {max_val:.3f}")
+            
+            if max_val <= 1.0:
+                # 假设值在0-1范围内，转换为0-255
+                images_np = (images.cpu().numpy() * 255).astype(np.uint8)
+            else:
+                # 已经是0-255范围，直接转换
+                images_np = np.clip(images.cpu().numpy(), 0, 255).astype(np.uint8)
         else:
-            images_np = images.cpu().numpy().astype(np.uint8)
+            images_np = np.clip(images.cpu().numpy(), 0, 255).astype(np.uint8)
+        
+        print(f"转换后图片数值范围: {images_np.min()} - {images_np.max()}")
         
         # 创建临时视频文件
         import tempfile
         with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as temp_file:
             temp_path = temp_file.name
         
+        print(f"临时视频文件路径: {temp_path}")
+        
         try:
-            # 设置视频编码器为mp4
-            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+            # 尝试多种编码器，优先使用H.264
+            fourcc_options = [
+                cv2.VideoWriter_fourcc(*'H264'),  # H.264编码器
+                cv2.VideoWriter_fourcc(*'h264'),  # 小写H.264
+                cv2.VideoWriter_fourcc(*'X264'),  # X264编码器
+                cv2.VideoWriter_fourcc(*'MJPG'),  # MJPEG编码器
+                cv2.VideoWriter_fourcc(*'mp4v'),  # MP4V编码器
+                cv2.VideoWriter_fourcc(*'XVID'),  # XVID编码器
+            ]
             
-            # 创建视频写入器
-            # OpenCV使用BGR格式，需要转换
+            video_writer = None
+            used_fourcc = None
+            
+            # 尝试不同的编码器
+            for fourcc in fourcc_options:
+                try:
+                    video_writer = cv2.VideoWriter(temp_path, fourcc, fps, (width, height))
+                    if video_writer.isOpened():
+                        used_fourcc = fourcc
+                        print(f"成功使用编码器: {fourcc}")
+                        break
+                    else:
+                        video_writer.release()
+                        video_writer = None
+                except Exception as e:
+                    print(f"编码器 {fourcc} 失败: {str(e)}")
+                    if video_writer:
+                        video_writer.release()
+                        video_writer = None
+            
+            if video_writer is None or not video_writer.isOpened():
+                raise RuntimeError("无法创建视频写入器，请检查OpenCV安装和编码器支持")
+            
+            # 写入帧数据
+            frames_written = 0
             if channels == 3:  # RGB -> BGR
-                video_writer = cv2.VideoWriter(temp_path, fourcc, fps, (width, height))
                 for i in range(batch_size):
                     frame = images_np[i]
                     # RGB转BGR
                     frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-                    video_writer.write(frame_bgr)
+                    success = video_writer.write(frame_bgr)
+                    if success:
+                        frames_written += 1
+                    else:
+                        print(f"警告: 第{i}帧写入失败")
+                        
             elif channels == 4:  # RGBA -> BGR (忽略alpha通道)
-                video_writer = cv2.VideoWriter(temp_path, fourcc, fps, (width, height))
                 for i in range(batch_size):
                     frame = images_np[i][:, :, :3]  # 只取RGB通道
                     # RGB转BGR
                     frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-                    video_writer.write(frame_bgr)
+                    success = video_writer.write(frame_bgr)
+                    if success:
+                        frames_written += 1
+                    else:
+                        print(f"警告: 第{i}帧写入失败")
             else:
+                video_writer.release()
                 raise ValueError(f"不支持的通道数: {channels}")
             
             video_writer.release()
+            print(f"成功写入 {frames_written}/{batch_size} 帧")
+            
+            # 检查生成的视频文件
+            if not os.path.exists(temp_path):
+                raise RuntimeError("视频文件生成失败")
+            
+            file_size = os.path.getsize(temp_path)
+            print(f"生成的视频文件大小: {file_size} 字节")
+            
+            if file_size == 0:
+                raise RuntimeError("生成的视频文件为空")
             
             # 读取生成的视频文件
             with open(temp_path, 'rb') as f:
                 video_data = f.read()
             
+            print(f"视频合成成功，数据大小: {len(video_data)} 字节")
             return video_data
             
+        except Exception as e:
+            print(f"视频生成过程中发生错误: {str(e)}")
+            raise
         finally:
             # 清理临时文件
             try:
-                os.unlink(temp_path)
-            except:
-                pass
+                if os.path.exists(temp_path):
+                    os.unlink(temp_path)
+                    print(f"已清理临时文件: {temp_path}")
+            except Exception as e:
+                print(f"清理临时文件失败: {str(e)}")
     
     def _generate_random_filename(self, extension: str = "") -> str:
         """生成随机文件名"""
