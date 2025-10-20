@@ -355,7 +355,10 @@ class OSSUploadNode:
             return ("", "", json.dumps(error_result, ensure_ascii=False, indent=2), 0, False, error_msg)
     
     def _images_to_video(self, images: torch.Tensor, fps: float = 30.0) -> bytes:
-        """将图片序列转换为视频"""
+        """
+        将图像列表转换为视频文件
+        使用FFmpeg进行视频合成，提供更好的编码器兼容性
+        """
         try:
             import cv2
         except ImportError:
@@ -388,103 +391,251 @@ class OSSUploadNode:
         
         print(f"转换后图片数值范围: {images_np.min()} - {images_np.max()}")
         
-        # 创建临时视频文件 - 使用项目目录下的temp/zmg目录
-        temp_path = self._create_temp_file(prefix="video_", suffix=".mp4")
+        # 检查FFmpeg是否可用
+        import shutil
+        import subprocess
+        import time
         
-        print(f"临时视频文件路径: {temp_path}")
+        ffmpeg_path = shutil.which('ffmpeg')
+        if not ffmpeg_path:
+            # 尝试常见的FFmpeg路径
+            possible_paths = [
+                '/usr/local/bin/ffmpeg',
+                '/usr/bin/ffmpeg',
+                '/opt/homebrew/bin/ffmpeg',
+                'ffmpeg'
+            ]
+            for path in possible_paths:
+                if shutil.which(path):
+                    ffmpeg_path = path
+                    break
+            
+            if not ffmpeg_path:
+                print("警告: 未找到FFmpeg，回退到OpenCV方法")
+                return self._images_to_video_opencv(images_np, fps, channels, width, height, batch_size)
         
         try:
-            # 尝试多种编码器，优先使用H.264
-            fourcc_options = [
-                cv2.VideoWriter_fourcc(*'H264'),  # H.264编码器
-                cv2.VideoWriter_fourcc(*'h264'),  # 小写H.264
-                cv2.VideoWriter_fourcc(*'X264'),  # X264编码器
-                cv2.VideoWriter_fourcc(*'MJPG'),  # MJPEG编码器
-                cv2.VideoWriter_fourcc(*'mp4v'),  # MP4V编码器
-                cv2.VideoWriter_fourcc(*'XVID'),  # XVID编码器
-            ]
+            # 确保尺寸是偶数（H.264要求）
+            width = width if width % 2 == 0 else width - 1
+            height = height if height % 2 == 0 else height - 1
             
-            video_writer = None
-            used_fourcc = None
+            # 创建临时目录存储帧
+            temp_dir = self._get_temp_dir()
+            frames_dir = os.path.join(temp_dir, f"frames_{int(time.time())}")
+            os.makedirs(frames_dir, exist_ok=True)
             
-            # 尝试不同的编码器
-            for fourcc in fourcc_options:
-                try:
-                    video_writer = cv2.VideoWriter(temp_path, fourcc, fps, (width, height))
-                    if video_writer.isOpened():
-                        used_fourcc = fourcc
-                        print(f"成功使用编码器: {fourcc}")
-                        break
-                    else:
-                        video_writer.release()
-                        video_writer = None
-                except Exception as e:
-                    print(f"编码器 {fourcc} 失败: {str(e)}")
-                    if video_writer:
-                        video_writer.release()
-                        video_writer = None
-            
-            if video_writer is None or not video_writer.isOpened():
-                raise RuntimeError("无法创建视频写入器，请检查OpenCV安装和编码器支持")
-            
-            # 写入帧数据
-            frames_written = 0
-            if channels == 3:  # RGB -> BGR
-                for i in range(batch_size):
-                    frame = images_np[i]
-                    # RGB转BGR
-                    frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-                    success = video_writer.write(frame_bgr)
-                    if success:
-                        frames_written += 1
-                    else:
-                        print(f"警告: 第{i}帧写入失败")
-                        
-            elif channels == 4:  # RGBA -> BGR (忽略alpha通道)
-                for i in range(batch_size):
-                    frame = images_np[i][:, :, :3]  # 只取RGB通道
-                    # RGB转BGR
-                    frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-                    success = video_writer.write(frame_bgr)
-                    if success:
-                        frames_written += 1
-                    else:
-                        print(f"警告: 第{i}帧写入失败")
-            else:
-                video_writer.release()
-                raise ValueError(f"不支持的通道数: {channels}")
-            
-            video_writer.release()
-            print(f"成功写入 {frames_written}/{batch_size} 帧")
-            
-            # 检查生成的视频文件
-            if not os.path.exists(temp_path):
-                raise RuntimeError("视频文件生成失败")
-            
-            file_size = os.path.getsize(temp_path)
-            print(f"生成的视频文件大小: {file_size} 字节")
-            
-            if file_size == 0:
-                raise RuntimeError("生成的视频文件为空")
-            
-            # 读取生成的视频文件
-            with open(temp_path, 'rb') as f:
-                video_data = f.read()
-            
-            print(f"视频合成成功，数据大小: {len(video_data)} 字节")
-            return video_data
-            
-        except Exception as e:
-            print(f"视频生成过程中发生错误: {str(e)}")
-            raise
-        finally:
-            # 清理临时文件
             try:
-                if os.path.exists(temp_path):
-                    os.unlink(temp_path)
-                    print(f"已清理临时文件: {temp_path}")
+                # 保存所有帧为临时图像文件
+                frame_paths = []
+                for i in range(batch_size):
+                    frame_path = os.path.join(frames_dir, f"frame_{i:06d}.png")
+                    
+                    frame = images_np[i]
+                    if channels == 4:  # RGBA
+                        frame_rgb = frame[:, :, :3]  # 只取RGB通道
+                    elif channels == 3:  # RGB
+                        frame_rgb = frame
+                    else:
+                        raise ValueError(f"不支持的通道数: {channels}")
+                    
+                    # 调整尺寸
+                    if frame_rgb.shape[:2] != (height, width):
+                        frame_rgb = cv2.resize(frame_rgb, (width, height))
+                    
+                    # 转换为BGR并保存
+                    frame_bgr = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
+                    cv2.imwrite(frame_path, frame_bgr)
+                    frame_paths.append(frame_path)
+                
+                # 生成输出路径
+                output_path = self._create_temp_file(prefix="video_", suffix=".mp4")
+                
+                # 构建FFmpeg命令
+                # 使用图像序列作为输入，输出H.264编码的MP4
+                cmd = [
+                    ffmpeg_path,
+                    '-y',  # 覆盖输出文件
+                    '-framerate', str(fps),  # 输入帧率
+                    '-i', os.path.join(frames_dir, 'frame_%06d.png'),  # 输入图像序列
+                    '-c:v', 'libx264',  # 使用H.264编码器
+                    '-pix_fmt', 'yuv420p',  # 像素格式，兼容性最好
+                    '-crf', '23',  # 质量控制，23是较好的质量
+                    '-preset', 'medium',  # 编码速度预设
+                    '-movflags', '+faststart',  # 优化网络播放
+                    '-s', f'{width}x{height}',  # 设置输出尺寸
+                    output_path
+                ]
+                
+                print(f"执行FFmpeg命令: {' '.join(cmd)}")
+                
+                # 执行FFmpeg命令
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=300  # 5分钟超时
+                )
+                
+                if result.returncode != 0:
+                    print(f"FFmpeg错误: {result.stderr}")
+                    # 尝试使用更兼容的编码器
+                    cmd_fallback = [
+                        ffmpeg_path,
+                        '-y',
+                        '-framerate', str(fps),
+                        '-i', os.path.join(frames_dir, 'frame_%06d.png'),
+                        '-c:v', 'libx264',
+                        '-pix_fmt', 'yuv420p',
+                        '-profile:v', 'baseline',  # 使用baseline profile提高兼容性
+                        '-level', '3.0',
+                        '-crf', '28',  # 稍微降低质量以提高兼容性
+                        '-preset', 'fast',
+                        '-movflags', '+faststart',
+                        '-s', f'{width}x{height}',
+                        output_path
+                    ]
+                    
+                    print(f"尝试兼容性编码: {' '.join(cmd_fallback)}")
+                    result = subprocess.run(cmd_fallback, capture_output=True, text=True, timeout=300)
+                    
+                    if result.returncode != 0:
+                        print(f"FFmpeg兼容性编码也失败: {result.stderr}")
+                        raise Exception(f"FFmpeg视频编码失败: {result.stderr}")
+                
+                # 检查输出文件
+                if not os.path.exists(output_path) or os.path.getsize(output_path) == 0:
+                    raise Exception("生成的视频文件为空或不存在")
+                
+                # 读取生成的视频文件
+                with open(output_path, 'rb') as f:
+                    video_data = f.read()
+                
+                print(f"视频合成成功: {output_path}, 大小: {len(video_data)} bytes")
+                
+                # 清理输出文件
+                if os.path.exists(output_path):
+                    os.unlink(output_path)
+                
+                return video_data
+                
+            finally:
+                # 清理临时帧文件
+                if os.path.exists(frames_dir):
+                    shutil.rmtree(frames_dir)
+                    
+        except subprocess.TimeoutExpired:
+            raise Exception("视频编码超时")
+        except Exception as e:
+            print(f"FFmpeg视频合成失败: {str(e)}")
+            # 回退到OpenCV方法
+            return self._images_to_video_opencv(images_np, fps, channels, width, height, batch_size)
+    
+    def _images_to_video_opencv(self, images_np, fps, channels, width, height, batch_size):
+        """
+        使用OpenCV进行视频合成的回退方法
+        """
+        try:
+            import cv2
+        except ImportError:
+            raise ImportError("需要安装opencv-python来支持视频生成功能: pip install opencv-python")
+        
+        # 确保尺寸是偶数
+        width = width if width % 2 == 0 else width - 1
+        height = height if height % 2 == 0 else height - 1
+        
+        # 生成输出路径
+        temp_path = self._create_temp_file(prefix="video_", suffix=".mp4")
+        
+        # 尝试多种编码器，按优先级排序
+        codecs = [
+            ('mp4v', '.mp4'),  # MPEG-4编码器，兼容性好
+            ('XVID', '.avi'),  # Xvid编码器
+            ('MJPG', '.avi'),  # Motion JPEG，兼容性最好但文件较大
+        ]
+        
+        for codec, ext in codecs:
+            try:
+                # 如果指定了特定扩展名，调整输出路径
+                if not temp_path.endswith(ext):
+                    base_path = os.path.splitext(temp_path)[0]
+                    current_output_path = base_path + ext
+                else:
+                    current_output_path = temp_path
+                
+                print(f"尝试使用编码器: {codec}")
+                
+                # 创建VideoWriter对象
+                fourcc = cv2.VideoWriter_fourcc(*codec)
+                out = cv2.VideoWriter(current_output_path, fourcc, fps, (width, height))
+                
+                if not out.isOpened():
+                    print(f"无法打开编码器: {codec}")
+                    continue
+                
+                # 写入帧
+                frames_written = 0
+                for i in range(batch_size):
+                    try:
+                        frame = images_np[i]
+                        
+                        # 处理图像格式
+                        if channels == 4:  # RGBA
+                            frame = frame[:, :, :3]  # 只取RGB通道
+                        elif channels == 3:  # RGB
+                            pass  # 保持原样
+                        else:
+                            raise ValueError(f"不支持的通道数: {channels}")
+                        
+                        # 调整尺寸
+                        if frame.shape[:2] != (height, width):
+                            frame = cv2.resize(frame, (width, height))
+                        
+                        # 转换为BGR
+                        frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+                        
+                        # 确保数据类型正确
+                        if frame_bgr.dtype != np.uint8:
+                            frame_bgr = frame_bgr.astype(np.uint8)
+                        
+                        # 写入帧
+                        success = out.write(frame_bgr)
+                        if success:
+                            frames_written += 1
+                        else:
+                            print(f"写入第{i}帧失败")
+                            
+                    except Exception as frame_error:
+                        print(f"处理第{i}帧时出错: {str(frame_error)}")
+                        continue
+                
+                # 释放资源
+                out.release()
+                
+                # 检查结果
+                if os.path.exists(current_output_path) and os.path.getsize(current_output_path) > 0:
+                    print(f"使用{codec}编码器成功创建视频: {current_output_path}")
+                    print(f"写入帧数: {frames_written}/{batch_size}")
+                    print(f"文件大小: {os.path.getsize(current_output_path)} bytes")
+                    
+                    # 读取生成的视频文件
+                    with open(current_output_path, 'rb') as f:
+                        video_data = f.read()
+                    
+                    # 清理临时文件
+                    if os.path.exists(current_output_path):
+                        os.unlink(current_output_path)
+                    
+                    return video_data
+                else:
+                    print(f"使用{codec}编码器创建的视频文件为空")
+                    if os.path.exists(current_output_path):
+                        os.remove(current_output_path)
+                    
             except Exception as e:
-                print(f"清理临时文件失败: {str(e)}")
+                print(f"使用编码器{codec}时出错: {str(e)}")
+                continue
+        
+        raise Exception("所有视频编码器都失败了，无法创建视频文件")
     
     def _get_temp_dir(self) -> str:
         """获取ComfyUI临时目录路径"""
