@@ -2,7 +2,7 @@ from .nodes.ApiRequestNode import *
 from .nodes.JsonParserNode import *
 from .nodes.EmptyImageNode import *
 from .nodes.LoadImageFromUrlNode import *
-from .nodes.LoadImageFromUrlNode import *
+from .nodes.TextToImageNode import *
 from .nodes.SaveVideoRGBA import *
 from .nodes.RemoveEmptyLinesNode import *
 from .nodes.MultilinePromptNode import *
