@@ -388,10 +388,8 @@ class OSSUploadNode:
         
         print(f"转换后图片数值范围: {images_np.min()} - {images_np.max()}")
         
-        # 创建临时视频文件
-        import tempfile
-        with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as temp_file:
-            temp_path = temp_file.name
+        # 创建临时视频文件 - 使用项目目录下的temp/zmg目录
+        temp_path = self._create_temp_file(prefix="video_", suffix=".mp4")
         
         print(f"临时视频文件路径: {temp_path}")
         
@@ -488,6 +486,32 @@ class OSSUploadNode:
             except Exception as e:
                 print(f"清理临时文件失败: {str(e)}")
     
+    def _get_temp_dir(self) -> str:
+        """获取ComfyUI临时目录路径"""
+        # 获取ComfyUI家目录路径
+        # 从插件路径 /app/ComfyUI/custom_nodes/ComfyUI-ZMG-Nodes/nodes/OSSUploadNode.py 向上3级找到 /app/ComfyUI
+        current_file = os.path.abspath(__file__)
+        # 向上3级: nodes -> ComfyUI-ZMG-Nodes -> custom_nodes -> ComfyUI
+        comfyui_home = os.path.dirname(os.path.dirname(os.path.dirname(current_file)))
+        temp_dir = os.path.join(comfyui_home, 'temp')
+        
+        # 确保临时目录存在
+        os.makedirs(temp_dir, exist_ok=True)
+        
+        return temp_dir
+    
+    def _create_temp_file(self, prefix: str = "", suffix: str = "") -> str:
+        """创建临时文件路径"""
+        import uuid
+        
+        temp_dir = self._get_temp_dir()
+        
+        # 生成唯一的文件名
+        unique_id = uuid.uuid4().hex[:8]
+        filename = f"{prefix}{unique_id}{suffix}"
+        
+        return os.path.join(temp_dir, filename)
+
     def _generate_random_filename(self, extension: str = "") -> str:
         """生成随机文件名"""
         import uuid
