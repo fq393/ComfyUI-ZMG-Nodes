@@ -148,16 +148,16 @@ class OSSUploadNode:
                     "tooltip": "阿里云OSS Secret Key（请输入您的密钥）"
                 }),
                 "end_point": ("STRING", {
-                    "default": "oss-cn-hz-zjgbdst-d01-a.cloud.ops.zrtgcloud.com",
-                    "tooltip": "OSS端点地址"
+                    "default": "",
+                    "tooltip": "OSS端点地址（如：oss-cn-hangzhou.aliyuncs.com）"
                 }),
                 "bucket_name": ("STRING", {
-                    "default": "ai-portal",
-                    "tooltip": "OSS存储桶名称"
+                    "default": "",
+                    "tooltip": "OSS存储桶名称（请输入您的bucket名称）"
                 }),
                 "domain": ("STRING", {
-                    "default": "https://ai-oss.zmg.com.cn:10004",
-                    "tooltip": "自定义域名（可选）"
+                    "default": "",
+                    "tooltip": "自定义域名（可选，如：https://your-domain.com）"
                 }),
                 "base_path": ("STRING", {
                     "default": "ai-portal",
