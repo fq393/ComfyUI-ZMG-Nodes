@@ -9,6 +9,9 @@ numpy>=1.24.0
 # 深度学习框架 (LoadImageFromUrlNode需要)
 torch>=2.0.0
 
+# 云存储 (OSSUploadNode需要)
+oss2>=2.18.0
+
 # 注意：以下模块由ComfyUI环境提供，无需单独安装
 # - json (Python内置)
 # - re (Python内置) 

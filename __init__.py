@@ -2,10 +2,11 @@ from .nodes.ApiRequestNode import *
 from .nodes.JsonParserNode import *
 from .nodes.EmptyImageNode import *
 from .nodes.LoadImageFromUrlNode import *
-from .nodes.TextToImageNode import *
+from .nodes.LoadImageFromUrlNode import *
 from .nodes.SaveVideoRGBA import *
 from .nodes.RemoveEmptyLinesNode import *
 from .nodes.MultilinePromptNode import *
+from .nodes.OSSUploadNode import *
 
 NODE_CONFIG = {
     # Network nodes
@@ -17,6 +18,9 @@ NODE_CONFIG = {
     
     # Text processing nodes
     "MultilinePromptNode": {"class": MultilinePromptNode, "name": "Multiline Prompt 📝"},
+    
+    # Cloud storage nodes
+    "OSSUploadNode": {"class": OSSUploadNode, "name": "OSS Upload 📤"},
     
     # Image processing nodes
     "LoadImageFromUrlNode": {"class": LoadImageFromUrlNode, "name": "LoadImageFromUrlNode"},
