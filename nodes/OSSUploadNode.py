@@ -160,8 +160,8 @@ class OSSUploadNode:
                     "tooltip": "自定义域名（可选，如：https://your-domain.com）"
                 }),
                 "base_path": ("STRING", {
-                    "default": "ai-portal",
-                    "tooltip": "基础路径前缀"
+                    "default": "",
+                    "tooltip": "基础路径前缀（可选，如：uploads）"
                 })
             },
             "optional": {
