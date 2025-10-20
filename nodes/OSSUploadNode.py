@@ -489,10 +489,10 @@ class OSSUploadNode:
     def _get_temp_dir(self) -> str:
         """获取ComfyUI临时目录路径"""
         # 获取ComfyUI家目录路径
-        # 从插件路径 /app/ComfyUI/custom_nodes/ComfyUI-ZMG-Nodes/nodes/OSSUploadNode.py 向上3级找到 /app/ComfyUI
+        # 从插件路径 /app/ComfyUI/custom_nodes/ComfyUI-ZMG-Nodes/nodes/OSSUploadNode.py 向上4级找到 /app/ComfyUI
         current_file = os.path.abspath(__file__)
-        # 向上3级: nodes -> ComfyUI-ZMG-Nodes -> custom_nodes -> ComfyUI
-        comfyui_home = os.path.dirname(os.path.dirname(os.path.dirname(current_file)))
+        # 向上4级: nodes -> ComfyUI-ZMG-Nodes -> custom_nodes -> ComfyUI
+        comfyui_home = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
         temp_dir = os.path.join(comfyui_home, 'temp')
         
         # 确保临时目录存在
