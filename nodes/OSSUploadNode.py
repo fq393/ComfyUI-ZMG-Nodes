@@ -138,6 +138,7 @@ class OSSUploadNode:
     def INPUT_TYPES(cls):
         return {
             "required": {
+                "input_data": (["IMAGE", "AUDIO", "VIDEO", "STRING", "*"], {"tooltip": "直接数据输入：图片、视频、音频、文件等"}),
                 "filename": ("STRING", {
                     "default": "upload_file",
                     "tooltip": "上传文件名（可包含扩展名如：audio.mp3，留空则自动生成随机名）"
@@ -180,8 +181,7 @@ class OSSUploadNode:
                 "video_format": (["mp4", "avi", "mov", "mkv"], {
                     "default": "mp4",
                     "tooltip": "视频输出格式（当输入多张图片时用于合成视频）"
-                }),
-                "input_data": (["IMAGE", "AUDIO", "VIDEO", "STRING", "*"], {"tooltip": "直接数据输入：图片、视频、音频、文件等"})
+                })
             },
             "optional": {
                 "content_type": ("STRING", {
