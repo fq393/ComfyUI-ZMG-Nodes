@@ -165,10 +165,10 @@ class OSSUploadNode:
                 "base_path": ("STRING", {
                     "default": "",
                     "tooltip": "基础路径前缀（可选，如：uploads）"
-                })
+                }),
+                "input_data": (["IMAGE", "AUDIO", "VIDEO", "STRING", "*"], {"tooltip": "直接数据输入：图片、视频、音频、文件等（input_mode=data时使用）"})
             },
             "optional": {
-                "input_data": (["IMAGE", "AUDIO", "VIDEO", "STRING", "*"], {"tooltip": "直接数据输入：图片、视频、音频、文件等（input_mode=data时使用）"}),
                 "file_path": ("STRING", {
                     "default": "",
                     "tooltip": "文件路径：支持相对路径（相对于ComfyUI目录）或绝对路径（input_mode=file_path时使用）"
