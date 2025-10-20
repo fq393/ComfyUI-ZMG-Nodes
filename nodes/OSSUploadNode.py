@@ -138,10 +138,6 @@ class OSSUploadNode:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "input_mode": (["data", "file_path"], {
-                    "default": "data",
-                    "tooltip": "输入模式：data=直接数据输入，file_path=文件路径输入"
-                }),
                 "filename": ("STRING", {
                     "default": "upload_file",
                     "tooltip": "上传文件名（可包含扩展名如：audio.mp3，留空则自动生成随机名）"
@@ -174,13 +170,20 @@ class OSSUploadNode:
                     "default": "",
                     "tooltip": "基础路径前缀（可选，如：uploads）"
                 }),
-                "input_data": (["IMAGE", "AUDIO", "VIDEO", "STRING", "*"], {"tooltip": "直接数据输入：图片、视频、音频、文件等（input_mode=data时使用）"})
+                "video_fps": ("FLOAT", {
+                    "default": 30.0,
+                    "min": 1.0,
+                    "max": 120.0,
+                    "step": 0.1,
+                    "tooltip": "视频帧率（当输入多张图片时用于合成视频）"
+                }),
+                "video_format": (["mp4", "avi", "mov", "mkv"], {
+                    "default": "mp4",
+                    "tooltip": "视频输出格式（当输入多张图片时用于合成视频）"
+                }),
+                "input_data": (["IMAGE", "AUDIO", "VIDEO", "STRING", "*"], {"tooltip": "直接数据输入：图片、视频、音频、文件等"})
             },
             "optional": {
-                "file_path": ("STRING", {
-                    "default": "",
-                    "tooltip": "文件路径：支持相对路径（相对于ComfyUI目录）或绝对路径（input_mode=file_path时使用）"
-                }),
                 "content_type": ("STRING", {
                     "default": "",
                     "tooltip": "文件MIME类型（留空自动检测）"
@@ -198,16 +201,11 @@ class OSSUploadNode:
     FUNCTION = "upload_to_oss"
     
     DESCRIPTION = """
-阿里云OSS上传节点 - 支持多种输入模式的文件上传
+阿里云OSS上传节点 - 支持直接数据输入的文件上传
 
 功能特点：
-• 支持两种输入模式：
-  - data模式：直接数据输入（图片张量、视频、音频、文本等）
-  - file_path模式：文件路径输入（支持相对路径和绝对路径）
-• 文件路径支持：
-  - 相对路径：相对于ComfyUI目录（如：output/fq393.mp3）
-  - 绝对路径：完整文件路径（如：/Users/user/files/video.mp4）
-  - 自动文件类型检测和扩展名处理
+• 直接数据输入：支持图片张量、视频、音频、文本等多种数据类型
+• 多图片自动合成视频：当输入多张图片时，自动合成为视频文件
 • 自动文件类型检测和MIME类型设置
 • 智能文件路径生成（基于时间戳和哈希）
 • 支持自定义域名和基础路径
@@ -238,9 +236,10 @@ class OSSUploadNode:
 • 构建云端媒体处理流水线
 """
     
-    def upload_to_oss(self, input_mode: str, filename: str, use_random_name: bool, access_key: str, secret_key: str,
+    def upload_to_oss(self, filename: str, use_random_name: bool, access_key: str, secret_key: str,
                      end_point: str, bucket_name: str, domain: str = "", base_path: str = "",
-                     input_data: Any = None, file_path: str = "", content_type: str = "", 
+                     video_fps: float = 30.0, video_format: str = "mp4",
+                     input_data: Any = None, content_type: str = "", 
                      enable_upload: bool = True) -> Tuple[str, str, str, int, bool, str]:
         """上传数据到OSS"""
         
@@ -272,25 +271,14 @@ class OSSUploadNode:
                 else:
                     final_filename = self._generate_random_filename()
             
-            # 根据输入模式处理数据
-            if input_mode == "file_path":
-                # 文件路径模式
-                if not file_path:
-                    error_msg = "文件路径模式下必须提供file_path参数"
-                    return ("", "", json.dumps({"error": error_msg}), 0, False, error_msg)
-                
-                file_data, actual_filename, detected_content_type = self._load_file_from_path(
-                    file_path, final_filename, content_type
-                )
-            else:
-                # 直接数据输入模式
-                if input_data is None:
-                    error_msg = "数据输入模式下必须提供input_data参数"
-                    return ("", "", json.dumps({"error": error_msg}), 0, False, error_msg)
-                
-                file_data, actual_filename, detected_content_type = self._convert_input_to_bytes(
-                    input_data, final_filename, content_type
-                )
+            # 处理数据输入
+            if input_data is None:
+                error_msg = "必须提供input_data参数"
+                return ("", "", json.dumps({"error": error_msg}), 0, False, error_msg)
+            
+            file_data, actual_filename, detected_content_type = self._convert_input_to_bytes(
+                input_data, final_filename, content_type, video_fps, video_format
+            )
             
             # 创建上传器并上传
             uploader = OSSUploader(config)
@@ -315,6 +303,81 @@ class OSSUploadNode:
             }
             return ("", "", json.dumps(error_result, ensure_ascii=False, indent=2), 0, False, error_msg)
     
+    def _images_to_video(self, images: torch.Tensor, fps: float = 30.0, video_format: str = "mp4") -> bytes:
+        """将图片序列转换为视频"""
+        try:
+            import cv2
+        except ImportError:
+            raise ImportError("需要安装opencv-python来支持视频生成功能: pip install opencv-python")
+        
+        # 确保输入是4D张量 [B, H, W, C]
+        if len(images.shape) != 4:
+            raise ValueError(f"期望4D张量 [B, H, W, C]，但得到形状: {images.shape}")
+        
+        batch_size, height, width, channels = images.shape
+        
+        if batch_size < 2:
+            raise ValueError("需要至少2张图片才能生成视频")
+        
+        # 转换张量为numpy数组
+        if images.dtype == torch.float32:
+            # 假设值在0-1范围内，转换为0-255
+            images_np = (images.cpu().numpy() * 255).astype(np.uint8)
+        else:
+            images_np = images.cpu().numpy().astype(np.uint8)
+        
+        # 创建临时视频文件
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix=f'.{video_format}', delete=False) as temp_file:
+            temp_path = temp_file.name
+        
+        try:
+            # 设置视频编码器
+            if video_format.lower() == 'mp4':
+                fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+            elif video_format.lower() == 'avi':
+                fourcc = cv2.VideoWriter_fourcc(*'XVID')
+            elif video_format.lower() == 'mov':
+                fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+            elif video_format.lower() == 'mkv':
+                fourcc = cv2.VideoWriter_fourcc(*'XVID')
+            else:
+                fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+            
+            # 创建视频写入器
+            # OpenCV使用BGR格式，需要转换
+            if channels == 3:  # RGB -> BGR
+                video_writer = cv2.VideoWriter(temp_path, fourcc, fps, (width, height))
+                for i in range(batch_size):
+                    frame = images_np[i]
+                    # RGB转BGR
+                    frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+                    video_writer.write(frame_bgr)
+            elif channels == 4:  # RGBA -> BGR (忽略alpha通道)
+                video_writer = cv2.VideoWriter(temp_path, fourcc, fps, (width, height))
+                for i in range(batch_size):
+                    frame = images_np[i][:, :, :3]  # 只取RGB通道
+                    # RGB转BGR
+                    frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+                    video_writer.write(frame_bgr)
+            else:
+                raise ValueError(f"不支持的通道数: {channels}")
+            
+            video_writer.release()
+            
+            # 读取生成的视频文件
+            with open(temp_path, 'rb') as f:
+                video_data = f.read()
+            
+            return video_data
+            
+        finally:
+            # 清理临时文件
+            try:
+                os.unlink(temp_path)
+            except:
+                pass
+    
     def _generate_random_filename(self, extension: str = "") -> str:
         """生成随机文件名"""
         import uuid
@@ -331,59 +394,8 @@ class OSSUploadNode:
             return random_name + extension
         return random_name
     
-    def _load_file_from_path(self, file_path: str, filename: str, content_type: str) -> Tuple[bytes, str, str]:
-        """从文件路径加载文件数据"""
-        try:
-            # 处理相对路径和绝对路径
-            if not os.path.isabs(file_path):
-                # 相对路径，相对于ComfyUI目录
-                # 假设ComfyUI目录是当前工作目录的上级目录
-                comfyui_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-                full_path = os.path.join(comfyui_dir, file_path)
-            else:
-                # 绝对路径
-                full_path = file_path
-            
-            # 检查文件是否存在
-            if not os.path.exists(full_path):
-                raise FileNotFoundError(f"文件不存在: {full_path}")
-            
-            # 读取文件数据
-            with open(full_path, 'rb') as f:
-                file_data = f.read()
-            
-            # 获取文件扩展名和MIME类型
-            file_ext = os.path.splitext(full_path)[1].lower()
-            if not file_ext:
-                # 如果没有扩展名，从原始文件名获取
-                original_ext = os.path.splitext(os.path.basename(full_path))[1].lower()
-                file_ext = original_ext
-            
-            # 生成实际文件名
-            if filename and filename != "upload_file":
-                # 如果filename已包含扩展名，直接使用；否则添加文件扩展名
-                if '.' in filename:
-                    actual_filename = filename
-                else:
-                    actual_filename = f"{filename}{file_ext}"
-            else:
-                # 使用原始文件名
-                actual_filename = os.path.basename(full_path)
-            
-            # 检测MIME类型
-            if content_type:
-                detected_content_type = content_type
-            else:
-                detected_content_type, _ = mimetypes.guess_type(full_path)
-                if not detected_content_type:
-                    detected_content_type = "application/octet-stream"
-            
-            return file_data, actual_filename, detected_content_type
-            
-        except Exception as e:
-            raise Exception(f"加载文件失败: {str(e)}")
-    
-    def _convert_input_to_bytes(self, input_data: Any, filename: str, content_type: str) -> Tuple[bytes, str, str]:
+
+    def _convert_input_to_bytes(self, input_data: Any, filename: str, content_type: str, video_fps: float = 30.0, video_format: str = "mp4") -> Tuple[bytes, str, str]:
         """将输入数据转换为字节数据"""
         
         # 处理AUDIO类型数据（ComfyUI音频格式）
@@ -433,10 +445,72 @@ class OSSUploadNode:
         # 处理图片张量
         elif isinstance(input_data, torch.Tensor):
             if len(input_data.shape) == 4:  # 批次图片 [B, H, W, C]
-                # 取第一张图片
-                image_tensor = input_data[0]
+                batch_size = input_data.shape[0]
+                
+                # 如果有多张图片（batch_size >= 2），生成视频
+                if batch_size >= 2:
+                    try:
+                        file_data = self._images_to_video(input_data, video_fps, video_format)
+                        # 如果filename已包含扩展名，直接使用；否则添加视频扩展名
+                        if '.' in filename:
+                            actual_filename = filename
+                        else:
+                            actual_filename = f"{filename}.{video_format}"
+                        detected_content_type = content_type or f"video/{video_format}"
+                    except Exception as e:
+                        # 如果视频生成失败，回退到处理第一张图片
+                        print(f"视频生成失败，回退到单图片模式: {str(e)}")
+                        image_tensor = input_data[0]
+                else:
+                    # 只有一张图片，按单图片处理
+                    image_tensor = input_data[0]
+                
+                # 如果定义了image_tensor，处理单图片
+                if 'image_tensor' in locals():
+                    # 转换为PIL图片
+                    if image_tensor.dtype == torch.float32:
+                        image_array = (image_tensor.cpu().numpy() * 255).astype(np.uint8)
+                    else:
+                        image_array = image_tensor.cpu().numpy()
+                    
+                    image = Image.fromarray(image_array)
+                    
+                    # 保存为字节流
+                    buffer = io.BytesIO()
+                    image_format = 'PNG' if image.mode == 'RGBA' else 'JPEG'
+                    image.save(buffer, format=image_format)
+                    file_data = buffer.getvalue()
+                    
+                    # 如果filename已包含扩展名，直接使用；否则添加图片扩展名
+                    if '.' in filename:
+                        actual_filename = filename
+                    else:
+                        actual_filename = f"{filename}.{image_format.lower()}"
+                    detected_content_type = content_type or f"image/{image_format.lower()}"
+                    
             elif len(input_data.shape) == 3:  # 单张图片 [H, W, C]
                 image_tensor = input_data
+                # 转换为PIL图片
+                if image_tensor.dtype == torch.float32:
+                    image_array = (image_tensor.cpu().numpy() * 255).astype(np.uint8)
+                else:
+                    image_array = image_tensor.cpu().numpy()
+                
+                image = Image.fromarray(image_array)
+                
+                # 保存为字节流
+                buffer = io.BytesIO()
+                image_format = 'PNG' if image.mode == 'RGBA' else 'JPEG'
+                image.save(buffer, format=image_format)
+                file_data = buffer.getvalue()
+                
+                # 如果filename已包含扩展名，直接使用；否则添加图片扩展名
+                if '.' in filename:
+                    actual_filename = filename
+                else:
+                    actual_filename = f"{filename}.{image_format.lower()}"
+                detected_content_type = content_type or f"image/{image_format.lower()}"
+                
             elif len(input_data.shape) == 2:  # 可能是音频数据 [channels, samples] 或 [samples, channels]
                 # 尝试作为音频处理
                 audio_data = input_data.cpu().numpy()
@@ -474,27 +548,6 @@ class OSSUploadNode:
                 else:
                     actual_filename = f"{filename}.wav"
                 detected_content_type = content_type or "audio/wav"
-            elif len(input_data.shape) == 3:  # 图片张量 [H, W, C]
-                # 转换为PIL图片
-                if input_data.dtype == torch.float32:
-                    image_array = (input_data.cpu().numpy() * 255).astype(np.uint8)
-                else:
-                    image_array = input_data.cpu().numpy()
-                
-                image = Image.fromarray(image_array)
-                
-                # 保存为字节流
-                buffer = io.BytesIO()
-                image_format = 'PNG' if image.mode == 'RGBA' else 'JPEG'
-                image.save(buffer, format=image_format)
-                file_data = buffer.getvalue()
-                
-                # 如果filename已包含扩展名，直接使用；否则添加图片扩展名
-                if '.' in filename:
-                    actual_filename = filename
-                else:
-                    actual_filename = f"{filename}.{image_format.lower()}"
-                detected_content_type = content_type or f"image/{image_format.lower()}"
             else:
                 raise ValueError(f"不支持的张量形状: {input_data.shape}")
             
