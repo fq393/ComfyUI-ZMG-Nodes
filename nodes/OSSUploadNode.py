@@ -168,7 +168,7 @@ class OSSUploadNode:
                 })
             },
             "optional": {
-                "input_data": ("*", {"tooltip": "直接数据输入：图片、视频、音频、文件等（input_mode=data时使用）"}),
+                "input_data": (["IMAGE", "AUDIO", "VIDEO", "STRING", "*"], {"tooltip": "直接数据输入：图片、视频、音频、文件等（input_mode=data时使用）"}),
                 "file_path": ("STRING", {
                     "default": "",
                     "tooltip": "文件路径：支持相对路径（相对于ComfyUI目录）或绝对路径（input_mode=file_path时使用）"
@@ -348,32 +348,105 @@ class OSSUploadNode:
     def _convert_input_to_bytes(self, input_data: Any, filename: str, content_type: str) -> Tuple[bytes, str, str]:
         """将输入数据转换为字节数据"""
         
+        # 处理AUDIO类型数据（ComfyUI音频格式）
+        if isinstance(input_data, dict) and 'waveform' in input_data and 'sample_rate' in input_data:
+            # ComfyUI音频格式: {"waveform": tensor, "sample_rate": int}
+            waveform = input_data['waveform']
+            sample_rate = input_data['sample_rate']
+            
+            # 转换音频tensor为WAV格式
+            import wave
+            buffer = io.BytesIO()
+            
+            # 确保音频数据在正确范围内
+            if isinstance(waveform, torch.Tensor):
+                audio_data = waveform.cpu().numpy()
+            else:
+                audio_data = waveform
+                
+            # 如果是多声道，取第一个声道或混合
+            if len(audio_data.shape) > 1:
+                if audio_data.shape[0] == 1:  # [1, samples]
+                    audio_data = audio_data[0]
+                elif audio_data.shape[1] == 1:  # [samples, 1]
+                    audio_data = audio_data[:, 0]
+                else:  # 多声道，取平均
+                    audio_data = np.mean(audio_data, axis=0 if audio_data.shape[0] > audio_data.shape[1] else 1)
+            
+            # 归一化到16位整数范围
+            if audio_data.dtype == np.float32 or audio_data.dtype == np.float64:
+                audio_data = (audio_data * 32767).astype(np.int16)
+            
+            # 写入WAV文件
+            with wave.open(buffer, 'wb') as wav_file:
+                wav_file.setnchannels(1)  # 单声道
+                wav_file.setsampwidth(2)  # 16位
+                wav_file.setframerate(sample_rate)
+                wav_file.writeframes(audio_data.tobytes())
+            
+            file_data = buffer.getvalue()
+            actual_filename = f"{filename}.wav"
+            detected_content_type = content_type or "audio/wav"
+            
         # 处理图片张量
-        if isinstance(input_data, torch.Tensor):
+        elif isinstance(input_data, torch.Tensor):
             if len(input_data.shape) == 4:  # 批次图片 [B, H, W, C]
                 # 取第一张图片
                 image_tensor = input_data[0]
             elif len(input_data.shape) == 3:  # 单张图片 [H, W, C]
                 image_tensor = input_data
+            elif len(input_data.shape) == 2:  # 可能是音频数据 [channels, samples] 或 [samples, channels]
+                # 尝试作为音频处理
+                audio_data = input_data.cpu().numpy()
+                
+                # 判断哪个维度是样本数（通常更大的维度）
+                if audio_data.shape[0] > audio_data.shape[1]:
+                    audio_data = audio_data.T  # 转置为 [channels, samples]
+                
+                # 如果是多声道，取第一个声道
+                if len(audio_data.shape) > 1 and audio_data.shape[0] > 1:
+                    audio_data = audio_data[0]
+                else:
+                    audio_data = audio_data.flatten()
+                
+                # 归一化到16位整数范围
+                if audio_data.dtype == np.float32 or audio_data.dtype == np.float64:
+                    audio_data = (audio_data * 32767).astype(np.int16)
+                
+                # 默认采样率
+                sample_rate = 44100
+                
+                # 写入WAV文件
+                import wave
+                buffer = io.BytesIO()
+                with wave.open(buffer, 'wb') as wav_file:
+                    wav_file.setnchannels(1)
+                    wav_file.setsampwidth(2)
+                    wav_file.setframerate(sample_rate)
+                    wav_file.writeframes(audio_data.tobytes())
+                
+                file_data = buffer.getvalue()
+                actual_filename = f"{filename}.wav"
+                detected_content_type = content_type or "audio/wav"
+            elif len(input_data.shape) == 3:  # 图片张量 [H, W, C]
+                # 转换为PIL图片
+                if input_data.dtype == torch.float32:
+                    image_array = (input_data.cpu().numpy() * 255).astype(np.uint8)
+                else:
+                    image_array = input_data.cpu().numpy()
+                
+                image = Image.fromarray(image_array)
+                
+                # 保存为字节流
+                buffer = io.BytesIO()
+                image_format = 'PNG' if image.mode == 'RGBA' else 'JPEG'
+                image.save(buffer, format=image_format)
+                file_data = buffer.getvalue()
+                
+                actual_filename = f"{filename}.{image_format.lower()}"
+                detected_content_type = content_type or f"image/{image_format.lower()}"
             else:
                 raise ValueError(f"不支持的张量形状: {input_data.shape}")
-            
-            # 转换为PIL图片
-            if image_tensor.dtype == torch.float32:
-                image_array = (image_tensor.cpu().numpy() * 255).astype(np.uint8)
-            else:
-                image_array = image_tensor.cpu().numpy()
-            
-            image = Image.fromarray(image_array)
-            
-            # 保存为字节流
-            buffer = io.BytesIO()
-            image_format = 'PNG' if image.mode == 'RGBA' else 'JPEG'
-            image.save(buffer, format=image_format)
-            file_data = buffer.getvalue()
-            
-            actual_filename = f"{filename}.{image_format.lower()}"
-            detected_content_type = content_type or f"image/{image_format.lower()}"
             
         # 处理字符串数据
         elif isinstance(input_data, str):
