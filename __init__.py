@@ -5,6 +5,7 @@ from .nodes.LoadImageFromUrlNode import *
 from .nodes.TextToImageNode import *
 from .nodes.SaveVideoRGBA import *
 from .nodes.RemoveEmptyLinesNode import *
+from .nodes.MultilinePromptNode import *
 
 NODE_CONFIG = {
     # Network nodes
@@ -13,6 +14,9 @@ NODE_CONFIG = {
     # Data processing nodes
     "JSON Parser Node": {"class": JsonParserNode, "name": "JSON Parser Node"},
     "RemoveEmptyLinesNode": {"class": RemoveEmptyLinesNode, "name": "Remove Empty Lines 🗑️"},
+    
+    # Text processing nodes
+    "MultilinePromptNode": {"class": MultilinePromptNode, "name": "Multiline Prompt 📝"},
     
     # Image processing nodes
     "LoadImageFromUrlNode": {"class": LoadImageFromUrlNode, "name": "LoadImageFromUrlNode"},
