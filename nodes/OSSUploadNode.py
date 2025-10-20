@@ -497,19 +497,30 @@ class OSSUploadNode:
                 # 默认采样率
                 sample_rate = 44100
                 
-                # 写入WAV文件
-                import wave
-                buffer = io.BytesIO()
-                with wave.open(buffer, 'wb') as wav_file:
-                    wav_file.setnchannels(1)
-                    wav_file.setsampwidth(2)
+                try:
+                    from pydub import AudioSegment
+                    import wave
+                except ImportError:
+                    raise ImportError("需要安装pydub来支持MP3音频生成功能: pip install pydub")
+                
+                # 先创建WAV格式的音频段
+                wav_buffer = io.BytesIO()
+                with wave.open(wav_buffer, 'wb') as wav_file:
+                    wav_file.setnchannels(1)  # 单声道
+                    wav_file.setsampwidth(2)  # 16位
                     wav_file.setframerate(sample_rate)
                     wav_file.writeframes(audio_data.tobytes())
                 
-                file_data = buffer.getvalue()
-                # 自动生成随机文件名，固定使用.wav后缀
-                actual_filename = self._generate_random_filename("wav")
-                detected_content_type = content_type or "audio/wav"
+                # 转换为MP3格式
+                wav_buffer.seek(0)
+                audio_segment = AudioSegment.from_wav(wav_buffer)
+                mp3_buffer = io.BytesIO()
+                audio_segment.export(mp3_buffer, format="mp3")
+                
+                file_data = mp3_buffer.getvalue()
+                # 自动生成随机文件名，固定使用.mp3后缀
+                actual_filename = self._generate_random_filename("mp3")
+                detected_content_type = content_type or "audio/mp3"
             else:
                 raise ValueError(f"不支持的张量形状: {input_data.shape}")
             
