@@ -140,12 +140,12 @@ class OSSUploadNode:
                     "tooltip": "上传文件名（不包含扩展名，系统会自动添加）"
                 }),
                 "access_key": ("STRING", {
-                    "default": "TXDnBuS9L0npguDb",
-                    "tooltip": "阿里云OSS Access Key"
+                    "default": "",
+                    "tooltip": "阿里云OSS Access Key（请输入您的密钥）"
                 }),
                 "secret_key": ("STRING", {
-                    "default": "HBUrehUjtIHelR0ioXCmNd7QR0poPe",
-                    "tooltip": "阿里云OSS Secret Key"
+                    "default": "",
+                    "tooltip": "阿里云OSS Secret Key（请输入您的密钥）"
                 }),
                 "end_point": ("STRING", {
                     "default": "oss-cn-hz-zjgbdst-d01-a.cloud.ops.zrtgcloud.com",
