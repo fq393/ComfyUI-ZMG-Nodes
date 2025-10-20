@@ -75,8 +75,12 @@ class OSSUploader:
                 if content_type is None:
                     content_type = 'application/octet-stream'
             
-            # 上传文件
-            result = bucket.put_object(file_path, file_data, headers={'Content-Type': content_type})
+            # 上传文件并设置公共读权限
+            headers = {
+                'Content-Type': content_type,
+                'x-oss-object-acl': 'public-read'  # 设置文件为公共读
+            }
+            result = bucket.put_object(file_path, file_data, headers=headers)
             
             # 生成访问URL
             file_url = self._generate_file_url(file_path)
@@ -140,7 +144,11 @@ class OSSUploadNode:
                 }),
                 "filename": ("STRING", {
                     "default": "upload_file",
-                    "tooltip": "上传文件名（不包含扩展名，系统会自动添加）"
+                    "tooltip": "上传文件名（可包含扩展名如：audio.mp3，留空则自动生成随机名）"
+                }),
+                "use_random_name": ("BOOLEAN", {
+                    "default": False,
+                    "tooltip": "使用随机生成的文件名（基于时间戳和哈希）"
                 }),
                 "access_key": ("STRING", {
                     "default": "",
@@ -230,7 +238,7 @@ class OSSUploadNode:
 • 构建云端媒体处理流水线
 """
     
-    def upload_to_oss(self, input_mode: str, filename: str, access_key: str, secret_key: str,
+    def upload_to_oss(self, input_mode: str, filename: str, use_random_name: bool, access_key: str, secret_key: str,
                      end_point: str, bucket_name: str, domain: str = "", base_path: str = "",
                      input_data: Any = None, file_path: str = "", content_type: str = "", 
                      enable_upload: bool = True) -> Tuple[str, str, str, int, bool, str]:
@@ -254,6 +262,16 @@ class OSSUploadNode:
                 error_msg = "OSS配置不完整，请检查必填字段"
                 return ("", "", json.dumps({"error": error_msg}), 0, False, error_msg)
             
+            # 处理文件名（支持随机名和扩展名）
+            final_filename = filename
+            if use_random_name:
+                # 如果filename包含扩展名，提取扩展名
+                if '.' in filename:
+                    extension = filename.split('.')[-1]
+                    final_filename = self._generate_random_filename(extension)
+                else:
+                    final_filename = self._generate_random_filename()
+            
             # 根据输入模式处理数据
             if input_mode == "file_path":
                 # 文件路径模式
@@ -262,7 +280,7 @@ class OSSUploadNode:
                     return ("", "", json.dumps({"error": error_msg}), 0, False, error_msg)
                 
                 file_data, actual_filename, detected_content_type = self._load_file_from_path(
-                    file_path, filename, content_type
+                    file_path, final_filename, content_type
                 )
             else:
                 # 直接数据输入模式
@@ -271,7 +289,7 @@ class OSSUploadNode:
                     return ("", "", json.dumps({"error": error_msg}), 0, False, error_msg)
                 
                 file_data, actual_filename, detected_content_type = self._convert_input_to_bytes(
-                    input_data, filename, content_type
+                    input_data, final_filename, content_type
                 )
             
             # 创建上传器并上传
@@ -296,6 +314,22 @@ class OSSUploadNode:
                 'upload_time': datetime.now().isoformat()
             }
             return ("", "", json.dumps(error_result, ensure_ascii=False, indent=2), 0, False, error_msg)
+    
+    def _generate_random_filename(self, extension: str = "") -> str:
+        """生成随机文件名"""
+        import uuid
+        import time
+        
+        # 生成基于时间戳和UUID的随机名
+        timestamp = str(int(time.time()))
+        random_id = str(uuid.uuid4())[:8]
+        random_name = f"{timestamp}_{random_id}"
+        
+        if extension:
+            if not extension.startswith('.'):
+                extension = '.' + extension
+            return random_name + extension
+        return random_name
     
     def _load_file_from_path(self, file_path: str, filename: str, content_type: str) -> Tuple[bytes, str, str]:
         """从文件路径加载文件数据"""
@@ -327,7 +361,11 @@ class OSSUploadNode:
             
             # 生成实际文件名
             if filename and filename != "upload_file":
-                actual_filename = f"{filename}{file_ext}"
+                # 如果filename已包含扩展名，直接使用；否则添加文件扩展名
+                if '.' in filename:
+                    actual_filename = filename
+                else:
+                    actual_filename = f"{filename}{file_ext}"
             else:
                 # 使用原始文件名
                 actual_filename = os.path.basename(full_path)
@@ -385,7 +423,11 @@ class OSSUploadNode:
                 wav_file.writeframes(audio_data.tobytes())
             
             file_data = buffer.getvalue()
-            actual_filename = f"{filename}.wav"
+            # 如果filename已包含扩展名，直接使用；否则添加.wav
+            if '.' in filename:
+                actual_filename = filename
+            else:
+                actual_filename = f"{filename}.wav"
             detected_content_type = content_type or "audio/wav"
             
         # 处理图片张量
@@ -426,7 +468,11 @@ class OSSUploadNode:
                     wav_file.writeframes(audio_data.tobytes())
                 
                 file_data = buffer.getvalue()
-                actual_filename = f"{filename}.wav"
+                # 如果filename已包含扩展名，直接使用；否则添加.wav
+                if '.' in filename:
+                    actual_filename = filename
+                else:
+                    actual_filename = f"{filename}.wav"
                 detected_content_type = content_type or "audio/wav"
             elif len(input_data.shape) == 3:  # 图片张量 [H, W, C]
                 # 转换为PIL图片
@@ -443,7 +489,11 @@ class OSSUploadNode:
                 image.save(buffer, format=image_format)
                 file_data = buffer.getvalue()
                 
-                actual_filename = f"{filename}.{image_format.lower()}"
+                # 如果filename已包含扩展名，直接使用；否则添加图片扩展名
+                if '.' in filename:
+                    actual_filename = filename
+                else:
+                    actual_filename = f"{filename}.{image_format.lower()}"
                 detected_content_type = content_type or f"image/{image_format.lower()}"
             else:
                 raise ValueError(f"不支持的张量形状: {input_data.shape}")
@@ -451,7 +501,11 @@ class OSSUploadNode:
         # 处理字符串数据
         elif isinstance(input_data, str):
             file_data = input_data.encode('utf-8')
-            actual_filename = f"{filename}.txt"
+            # 如果filename已包含扩展名，直接使用；否则添加.txt
+            if '.' in filename:
+                actual_filename = filename
+            else:
+                actual_filename = f"{filename}.txt"
             detected_content_type = content_type or "text/plain; charset=utf-8"
             
         # 处理字节数据
@@ -468,21 +522,33 @@ class OSSUploadNode:
                 image_format = 'PNG' if input_data.shape[2] == 4 else 'JPEG'
                 image.save(buffer, format=image_format)
                 file_data = buffer.getvalue()
-                actual_filename = f"{filename}.{image_format.lower()}"
+                # 如果filename已包含扩展名，直接使用；否则添加图片扩展名
+                if '.' in filename:
+                    actual_filename = filename
+                else:
+                    actual_filename = f"{filename}.{image_format.lower()}"
                 detected_content_type = content_type or f"image/{image_format.lower()}"
             else:
                 # 其他数组数据保存为numpy格式
                 buffer = io.BytesIO()
                 np.save(buffer, input_data)
                 file_data = buffer.getvalue()
-                actual_filename = f"{filename}.npy"
+                # 如果filename已包含扩展名，直接使用；否则添加.npy
+                if '.' in filename:
+                    actual_filename = filename
+                else:
+                    actual_filename = f"{filename}.npy"
                 detected_content_type = content_type or "application/octet-stream"
                 
         # 处理列表和字典
         elif isinstance(input_data, (list, dict)):
             json_str = json.dumps(input_data, ensure_ascii=False, indent=2)
             file_data = json_str.encode('utf-8')
-            actual_filename = f"{filename}.json"
+            # 如果filename已包含扩展名，直接使用；否则添加.json
+            if '.' in filename:
+                actual_filename = filename
+            else:
+                actual_filename = f"{filename}.json"
             detected_content_type = content_type or "application/json; charset=utf-8"
             
         else:
@@ -490,7 +556,11 @@ class OSSUploadNode:
             try:
                 str_data = str(input_data)
                 file_data = str_data.encode('utf-8')
-                actual_filename = f"{filename}.txt"
+                # 如果filename已包含扩展名，直接使用；否则添加.txt
+                if '.' in filename:
+                    actual_filename = filename
+                else:
+                    actual_filename = f"{filename}.txt"
                 detected_content_type = content_type or "text/plain; charset=utf-8"
             except Exception:
                 raise ValueError(f"不支持的输入数据类型: {type(input_data)}")
