@@ -138,7 +138,7 @@ class OSSUploadNode:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "input_data": ("any", {"tooltip": "接受任意类型数据：图片、音频、视频、文字、字典等"}),
+                "input_data": ("*", {"tooltip": "接受任意类型数据：图片、音频、视频、文本等"}),
                 "access_key": ("STRING", {
                     "default": "",
                     "tooltip": "阿里云OSS Access Key（请输入您的密钥）"
