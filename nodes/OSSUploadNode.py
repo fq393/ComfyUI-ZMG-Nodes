@@ -25,6 +25,78 @@ except ImportError:
 from .config.NodeCategory import NodeCategory
 
 
+# ============================================================================
+# 工具类和函数 - 参考自utils.py和logic.py
+# ============================================================================
+
+class AlwaysEqualProxy(str):
+    """
+    类型代理类，用于解决ComfyUI类型匹配问题
+    继承自str，重写__eq__和__ne__方法，使其与任何类型都匹配
+    """
+    def __eq__(self, _):
+        return True
+
+    def __ne__(self, _):
+        return False
+
+
+class TautologyStr(str):
+    """
+    永真字符串类，用于类型匹配
+    """
+    def __ne__(self, other):
+        return False
+
+
+class ByPassTypeTuple(tuple):
+    """
+    绕过类型检查的元组类
+    """
+    def __getitem__(self, index):
+        if index > 0:
+            index = 0
+        item = super().__getitem__(index)
+        if isinstance(item, str):
+            return TautologyStr(item)
+        return item
+
+
+# 定义通用类型，用于接受任意类型输入
+any_type = AlwaysEqualProxy("*")
+
+
+# 简单的缓存和日志函数实现
+def cache(*args, **kwargs):
+    """简单的缓存函数占位符"""
+    pass
+
+
+def update_cache(*args, **kwargs):
+    """简单的更新缓存函数占位符"""
+    pass
+
+
+def remove_cache(cache_key):
+    """简单的移除缓存函数占位符"""
+    print(f"清除缓存: {cache_key}")
+
+
+def log_node_info(node_name, message):
+    """简单的节点信息日志函数"""
+    print(f"[INFO] {node_name}: {message}")
+
+
+def log_node_warn(node_name, message):
+    """简单的节点警告日志函数"""
+    print(f"[WARN] {node_name}: {message}")
+
+
+# ============================================================================
+# OSS上传相关类
+# ============================================================================
+
+
 class OSSConfig:
     """阿里云OSS配置类"""
     
@@ -138,7 +210,7 @@ class OSSUploadNode:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "input_data": ("*", {"tooltip": "接受任意类型数据：图片、音频、视频、文本等"}),
+                "input_data": (any_type, {"tooltip": "接受任意类型数据：图片、音频、视频、文本等"}),
                 "access_key": ("STRING", {
                     "default": "",
                     "tooltip": "阿里云OSS Access Key（请输入您的密钥）"

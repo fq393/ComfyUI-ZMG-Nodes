@@ -101,6 +101,7 @@ ComfyUI-ZMG-Nodes是一个专为ComfyUI设计的自定义节点插件包，包�
 ### ☁️ 云存储节点 (ZMGNodes/cloud)
 - **OSS Upload Node** - 阿里云OSS上传节点
   - **任意类型输入**：支持图片、视频、音频、文本等任意类型数据上传
+  - **类型匹配优化**：使用AlwaysEqualProxy解决ComfyUI类型匹配问题，完美兼容AUDIO等特殊类型
   - **智能类型检测**：自动识别输入数据类型并设置正确的MIME类型
   - **标准化输出格式**：
     - 音频数据：自动转换为MP3格式（需要pydub库支持）
@@ -188,3 +189,12 @@ ComfyUI-ZMG-Nodes/
 
 - GitHub: [@fq393](https://github.com/fq393)
 - 项目链接: [https://github.com/fq393/ComfyUI-ZMG-Nodes](https://github.com/fq393/ComfyUI-ZMG-Nodes)
+
+## 📝 更新日志
+
+### v1.1.0 (2024-01-XX)
+- **修复**: 解决OSS Upload Node的"Return type mismatch"错误
+  - 集成AlwaysEqualProxy类型代理，解决ComfyUI类型匹配问题
+  - 完美兼容AUDIO等特殊输入类型
+  - 优化类型检测机制，提升节点稳定性
+- **优化**: 改进错误处理和日志输出功能
