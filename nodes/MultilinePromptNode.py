@@ -8,6 +8,27 @@ from typing import Dict, Any, Tuple
 from .config.NodeCategory import NodeCategory
 
 
+# AlwaysEqualProxy 类定义
+class AlwaysEqualProxy:
+    """
+    一个总是相等的代理类，用于ComfyUI的动态类型系统
+    """
+    def __init__(self, value):
+        self.value = value
+    
+    def __eq__(self, other):
+        return True
+    
+    def __ne__(self, other):
+        return False
+    
+    def __str__(self):
+        return str(self.value)
+    
+    def __repr__(self):
+        return f"AlwaysEqualProxy({self.value!r})"
+
+
 class MultilinePromptNode:
     """
     ComfyUI节点：多行提示词输出
@@ -74,8 +95,9 @@ class MultilinePromptNode:
             },
         }
 
-    RETURN_TYPES = ("STRING", "INT", "STRING", "STRING", "STRING", "STRING", "COMBO")
+    RETURN_TYPES = ("STRING", "INT", "STRING", "STRING", "STRING", "STRING", AlwaysEqualProxy('*'))
     RETURN_NAMES = ("formatted_prompt", "total_lines", "line_count_info", "original_prompt", "indexed_line", "index_info", "lines_combo")
+    OUTPUT_IS_LIST = (False, False, False, False, False, False, True)
     FUNCTION = "process_multiline_prompt"
     CATEGORY = NodeCategory.TEXT
     
