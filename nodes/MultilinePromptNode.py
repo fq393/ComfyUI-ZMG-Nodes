@@ -65,11 +65,11 @@ class MultilinePromptNode:
                     "tooltip": "是否启用索引功能，获取指定行的数据"
                 }),
                 "line_index": ("INT", {
-                    "default": 1,
-                    "min": 1,
+                    "default": 0,
+                    "min": 0,
                     "max": 9999,
                     "step": 1,
-                    "tooltip": "要获取的行索引（从1开始）"
+                    "tooltip": "要获取的行索引（从0开始）"
                 })
             },
         }
@@ -100,7 +100,7 @@ class MultilinePromptNode:
 
 索引功能：
 • enable_index: 启用后可获取指定行的数据
-• line_index: 指定要获取的行号（从1开始）
+• line_index: 指定要获取的行号（从0开始）
 • 支持索引范围检查和错误提示
 • 可与其他格式化功能组合使用
 
@@ -113,7 +113,7 @@ class MultilinePromptNode:
 • add_line_numbers: 是否添加行号
 • line_number_format: 行号格式
 • enable_index: 是否启用索引功能
-• line_index: 要获取的行索引（从1开始）
+• line_index: 要获取的行索引（从0开始）
 
 输出：
 • formatted_prompt: 格式化后的提示词文本
@@ -237,16 +237,16 @@ class MultilinePromptNode:
             if total_lines == 0:
                 indexed_line = ""
                 index_info = f"索引 {line_index}: 无可用行（文本为空）"
-            elif line_index < 1:
+            elif line_index < 0:
                 indexed_line = ""
-                index_info = f"索引 {line_index}: 无效索引（索引必须从1开始）"
-            elif line_index > total_lines:
+                index_info = f"索引 {line_index}: 无效索引（索引必须从0开始）"
+            elif line_index >= total_lines:
                 indexed_line = ""
-                index_info = f"索引 {line_index}: 超出范围（总共 {total_lines} 行）"
+                index_info = f"索引 {line_index}: 超出范围（总共 {total_lines} 行，有效索引: 0-{total_lines-1}）"
             else:
-                # 获取指定索引的行（索引从1开始，所以减1）
-                indexed_line = processed_lines[line_index - 1]
-                index_info = f"索引 {line_index}: 成功获取第 {line_index} 行（共 {total_lines} 行）"
+                # 获取指定索引的行（索引从0开始）
+                indexed_line = processed_lines[line_index]
+                index_info = f"索引 {line_index}: 成功获取第 {line_index+1} 行（共 {total_lines} 行）"
         else:
             index_info = "索引功能未启用"
         
