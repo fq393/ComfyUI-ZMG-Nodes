@@ -1,6 +1,7 @@
 from .nodes.ApiRequestNode import *
 from .nodes.ElasticsearchUpdateNode import *
 from .nodes.JsonParserNode import *
+from .nodes.JsonBuilderNode import *
 from .nodes.EmptyImageNode import *
 from .nodes.LoadImageFromUrlNode import *
 from .nodes.TextToImageNode import *
@@ -15,7 +16,8 @@ NODE_CONFIG = {
     "Elasticsearch Update Node": {"class": ElasticsearchUpdateNode, "name": "ES更新节点"},
     
     # Data processing nodes
-    "JSON Parser Node": {"class": JsonParserNode, "name": "JSON Parser Node"},
+    "JSON Parser Node": {"class": JSONParserNode, "name": "JSON解析器"},
+    "JSON Builder Node": {"class": JsonBuilderNode, "name": "JSON构建器"},
     "RemoveEmptyLinesNode": {"class": RemoveEmptyLinesNode, "name": "Remove Empty Lines 🗑️"},
     
     # Text processing nodes
