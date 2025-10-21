@@ -246,7 +246,7 @@ class MultilinePromptNode:
             else:
                 # 获取指定索引的行（索引从0开始）
                 indexed_line = processed_lines[line_index]
-                index_info = f"索引 {line_index}: 成功获取第 {line_index+1} 行（共 {total_lines} 行）"
+                index_info = f"索引 {line_index}: 成功获取内容（共 {total_lines} 行，索引范围: 0-{total_lines-1}）"
         else:
             index_info = "索引功能未启用"
         
