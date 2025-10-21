@@ -62,9 +62,11 @@ class ElasticsearchUpdateNode:
                 "authorization": ("STRING", {
                     "default": "",
                     "placeholder": "认证信息（可选，格式：Basic xxx）"
-                }),
-                "anything": (any, {"widget": False})
+                })
             },
+            "optional": {
+                "anything": (any, {"widget": False})
+            }
         }
 
     RETURN_TYPES = ("STRING", "INT", any)
