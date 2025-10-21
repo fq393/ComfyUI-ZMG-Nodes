@@ -65,7 +65,7 @@ class ElasticsearchUpdateNode:
                 })
             },
             "optional": {
-                "anything": (any, {"widget": False})
+                "passthrough": (any, {"widget": False})
             }
         }
 
@@ -197,7 +197,7 @@ class ElasticsearchUpdateNode:
 
     def execute_update(self, es_host: str, index_name: str, operation_type: str,
                       document_id: str, query: str, script: str, pretty: bool,
-                      timeout: int, authorization: str, anything: Any) -> Tuple[str, int, Any]:
+                      timeout: int, authorization: str, passthrough: Any) -> Tuple[str, int, Any]:
         """
         执行Elasticsearch更新操作
         
@@ -211,7 +211,7 @@ class ElasticsearchUpdateNode:
             pretty (bool): 是否格式化输出
             timeout (int): 超时时间（秒）
             authorization (str): 认证信息
-            anything (Any): 透传数据
+            passthrough (Any): 透传数据
             
         Returns:
             Tuple[str, int, Any]: (响应内容, 受影响文档数, 透传数据)
@@ -246,15 +246,15 @@ class ElasticsearchUpdateNode:
                 
                 # 格式化响应
                 formatted_response = json.dumps(response_data, ensure_ascii=False, indent=2)
-                return (formatted_response, affected_count, anything)
+                return (formatted_response, affected_count, passthrough)
                 
             except json.JSONDecodeError:
-                return (response.text, 0, anything)
+                return (response.text, 0, passthrough)
                 
         except requests.exceptions.Timeout:
-            return (f"Error: 请求超时（{timeout}秒）", 0, anything)
+            return (f"Error: 请求超时（{timeout}秒）", 0, passthrough)
         except requests.exceptions.ConnectionError:
-            return ("Error: 连接失败，请检查Elasticsearch服务是否运行", 0, anything)
+            return ("Error: 连接失败，请检查Elasticsearch服务是否运行", 0, passthrough)
         except requests.exceptions.HTTPError as e:
             error_msg = f"Error: HTTP错误 {e.response.status_code}"
             try:
@@ -262,11 +262,11 @@ class ElasticsearchUpdateNode:
                 error_msg += f" - {json.dumps(error_detail, ensure_ascii=False, indent=2)}"
             except:
                 error_msg += f" - {e.response.text}"
-            return (error_msg, 0, anything)
+            return (error_msg, 0, passthrough)
         except requests.exceptions.RequestException as e:
-            return (f"Error: 请求异常 - {str(e)}", 0, anything)
+            return (f"Error: 请求异常 - {str(e)}", 0, passthrough)
         except Exception as e:
-            return (f"Error: 未知错误 - {str(e)}", 0, anything)
+            return (f"Error: 未知错误 - {str(e)}", 0, passthrough)
 
 
 NODE_CLASS_MAPPINGS = {
