@@ -139,7 +139,7 @@ class MultilinePromptNode:
             add_line_numbers: 是否添加行号
             line_number_format: 行号格式
             enable_index: 是否启用索引功能
-            line_index: 要获取的行索引（从1开始）
+            line_index: 要获取的行索引（从0开始）
             
         Returns:
             Tuple[str, int, str, str, str, str]: (格式化提示词, 总行数, 行数信息, 原始提示词, 索引行内容, 索引信息)
@@ -150,7 +150,7 @@ class MultilinePromptNode:
         
         # 如果输入为空，返回默认值
         if not prompt_text or not prompt_text.strip():
-            return "", 0, "总行数: 0行（空文本）", ""
+            return "", 0, "总行数: 0行（空文本）", "", "", "索引功能未启用（文本为空）"
         
         # 按行分割文本
         lines = prompt_text.split('\n')
