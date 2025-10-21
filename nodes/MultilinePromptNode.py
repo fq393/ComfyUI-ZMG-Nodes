@@ -9,24 +9,12 @@ from .config.NodeCategory import NodeCategory
 
 
 # AlwaysEqualProxy 类定义
-class AlwaysEqualProxy:
-    """
-    一个总是相等的代理类，用于ComfyUI的动态类型系统
-    """
-    def __init__(self, value):
-        self.value = value
-    
-    def __eq__(self, other):
+class AlwaysEqualProxy(str):
+    def __eq__(self, _):
         return True
     
-    def __ne__(self, other):
+    def __ne__(self, _):
         return False
-    
-    def __str__(self):
-        return str(self.value)
-    
-    def __repr__(self):
-        return f"AlwaysEqualProxy({self.value!r})"
 
 
 class MultilinePromptNode:
