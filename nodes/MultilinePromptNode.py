@@ -74,8 +74,8 @@ class MultilinePromptNode:
             },
         }
 
-    RETURN_TYPES = ("STRING", "INT", "STRING", "STRING", "STRING", "STRING")
-    RETURN_NAMES = ("formatted_prompt", "total_lines", "line_count_info", "original_prompt", "indexed_line", "index_info")
+    RETURN_TYPES = ("STRING", "INT", "STRING", "STRING", "STRING", "STRING", "COMBO")
+    RETURN_NAMES = ("formatted_prompt", "total_lines", "line_count_info", "original_prompt", "indexed_line", "index_info", "lines_combo")
     FUNCTION = "process_multiline_prompt"
     CATEGORY = NodeCategory.TEXT
     
@@ -122,11 +122,12 @@ class MultilinePromptNode:
 • original_prompt: 原始提示词文本
 • indexed_line: 指定索引的行内容
 • index_info: 索引操作的详细信息
+• lines_combo: 所有行的列表（COMBO类型，可用于下拉选择）
 """
 
     def process_multiline_prompt(self, prompt_text: str, line_separator: str, custom_separator: str,
                                 remove_empty_lines: bool, trim_lines: bool, add_line_numbers: bool,
-                                line_number_format: str, enable_index: bool, line_index: int) -> Tuple[str, int, str, str, str, str]:
+                                line_number_format: str, enable_index: bool, line_index: int) -> Tuple[str, int, str, str, str, str, list]:
         """
         处理多行提示词
         
@@ -142,7 +143,7 @@ class MultilinePromptNode:
             line_index: 要获取的行索引（从0开始）
             
         Returns:
-            Tuple[str, int, str, str, str, str]: (格式化提示词, 总行数, 行数信息, 原始提示词, 索引行内容, 索引信息)
+            Tuple[str, int, str, str, str, str, list]: (格式化提示词, 总行数, 行数信息, 原始提示词, 索引行内容, 索引信息, 行列表)
         """
         
         # 保存原始文本
@@ -150,7 +151,7 @@ class MultilinePromptNode:
         
         # 如果输入为空，返回默认值
         if not prompt_text or not prompt_text.strip():
-            return "", 0, "总行数: 0行（空文本）", "", "", "索引功能未启用（文本为空）"
+            return "", 0, "总行数: 0行（空文本）", "", "", "索引功能未启用（文本为空）", []
         
         # 按行分割文本
         lines = prompt_text.split('\n')
@@ -250,7 +251,7 @@ class MultilinePromptNode:
         else:
             index_info = "索引功能未启用"
         
-        return formatted_prompt, total_lines, line_count_info, original_prompt, indexed_line, index_info
+        return formatted_prompt, total_lines, line_count_info, original_prompt, indexed_line, index_info, processed_lines
 
 
 # 节点映射配置
