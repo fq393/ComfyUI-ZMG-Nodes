@@ -2,6 +2,7 @@ import json
 import requests
 from typing import Dict, Any, Tuple, Union
 from .config.NodeCategory import NodeCategory
+from .utils.TypeUtils import ANY_TYPE
 
 
 class ElasticsearchUpdateNode:
@@ -62,11 +63,11 @@ class ElasticsearchUpdateNode:
                 })
             },
             "optional": {
-                "passthrough": ("*", {"widget": False})
+                "passthrough": (ANY_TYPE, {"widget": False})
             }
         }
 
-    RETURN_TYPES = ("STRING", "INT", "*")
+    RETURN_TYPES = ("STRING", "INT", ANY_TYPE)
     RETURN_NAMES = ("response", "affected_count", "passthrough")
     FUNCTION = "execute_update"
     CATEGORY = NodeCategory.NETWORK

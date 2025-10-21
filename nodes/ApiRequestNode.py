@@ -2,6 +2,7 @@ import json
 import requests
 from typing import Dict, Any, Tuple, Union
 from .config.NodeCategory import NodeCategory
+from .utils.TypeUtils import ANY_TYPE
 
 
 class APIRequestNode:
@@ -48,11 +49,11 @@ class APIRequestNode:
                     "max": 300,
                     "step": 1
                 }),
-                "anything": ("*", {"widget": False})
+                "anything": (ANY_TYPE, {"widget": False})
             },
         }
 
-    RETURN_TYPES = ("STRING", "*")
+    RETURN_TYPES = ("STRING", ANY_TYPE)
     RETURN_NAMES = ("response", "passthrough")
     FUNCTION = "make_request"
     CATEGORY = NodeCategory.NETWORK
