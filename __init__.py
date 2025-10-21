@@ -1,4 +1,5 @@
 from .nodes.ApiRequestNode import *
+from .nodes.ElasticsearchUpdateNode import *
 from .nodes.JsonParserNode import *
 from .nodes.EmptyImageNode import *
 from .nodes.LoadImageFromUrlNode import *
@@ -11,6 +12,7 @@ from .nodes.OSSUploadNode import *
 NODE_CONFIG = {
     # Network nodes
     "API Request Node": {"class": APIRequestNode, "name": "API Request Node"},
+    "Elasticsearch Update Node": {"class": ElasticsearchUpdateNode, "name": "ES更新节点"},
     
     # Data processing nodes
     "JSON Parser Node": {"class": JsonParserNode, "name": "JSON Parser Node"},
