@@ -59,12 +59,23 @@ class MultilinePromptNode:
                 "line_number_format": (["1. ", "(1) ", "[1] ", "1: ", "1 - "], {
                     "default": "1. ",
                     "tooltip": "行号格式"
+                }),
+                "enable_index": ("BOOLEAN", {
+                    "default": False,
+                    "tooltip": "是否启用索引功能，获取指定行的数据"
+                }),
+                "line_index": ("INT", {
+                    "default": 1,
+                    "min": 1,
+                    "max": 9999,
+                    "step": 1,
+                    "tooltip": "要获取的行索引（从1开始）"
                 })
             },
         }
 
-    RETURN_TYPES = ("STRING", "INT", "STRING", "STRING")
-    RETURN_NAMES = ("formatted_prompt", "total_lines", "line_count_info", "original_prompt")
+    RETURN_TYPES = ("STRING", "INT", "STRING", "STRING", "STRING", "STRING")
+    RETURN_NAMES = ("formatted_prompt", "total_lines", "line_count_info", "original_prompt", "indexed_line", "index_info")
     FUNCTION = "process_multiline_prompt"
     CATEGORY = NodeCategory.TEXT
     
@@ -78,6 +89,7 @@ class MultilinePromptNode:
 • 可选的行号添加功能
 • 自动去除空行和首尾空白
 • 提供原始文本和格式化文本输出
+• 🆕 索引功能：可直接获取指定行的单条数据
 
 分隔符选项：
 • 换行符: 保持原有的多行格式
@@ -85,6 +97,12 @@ class MultilinePromptNode:
 • 分号: 用分号连接所有行  
 • 空格: 用空格连接所有行
 • 自定义: 使用自定义分隔符
+
+索引功能：
+• enable_index: 启用后可获取指定行的数据
+• line_index: 指定要获取的行号（从1开始）
+• 支持索引范围检查和错误提示
+• 可与其他格式化功能组合使用
 
 输入参数：
 • prompt_text: 多行提示词文本
@@ -94,17 +112,21 @@ class MultilinePromptNode:
 • trim_lines: 是否去除行首尾空白
 • add_line_numbers: 是否添加行号
 • line_number_format: 行号格式
+• enable_index: 是否启用索引功能
+• line_index: 要获取的行索引（从1开始）
 
 输出：
 • formatted_prompt: 格式化后的提示词文本
 • total_lines: 总行数（整数）
 • line_count_info: 行数统计信息（文本）
 • original_prompt: 原始提示词文本
+• indexed_line: 指定索引的行内容
+• index_info: 索引操作的详细信息
 """
 
     def process_multiline_prompt(self, prompt_text: str, line_separator: str, custom_separator: str,
                                 remove_empty_lines: bool, trim_lines: bool, add_line_numbers: bool,
-                                line_number_format: str) -> Tuple[str, int, str, str]:
+                                line_number_format: str, enable_index: bool, line_index: int) -> Tuple[str, int, str, str, str, str]:
         """
         处理多行提示词
         
@@ -116,9 +138,11 @@ class MultilinePromptNode:
             trim_lines: 是否去除行首尾空白
             add_line_numbers: 是否添加行号
             line_number_format: 行号格式
+            enable_index: 是否启用索引功能
+            line_index: 要获取的行索引（从1开始）
             
         Returns:
-            Tuple[str, int, str, str]: (格式化提示词, 总行数, 行数信息, 原始提示词)
+            Tuple[str, int, str, str, str, str]: (格式化提示词, 总行数, 行数信息, 原始提示词, 索引行内容, 索引信息)
         """
         
         # 保存原始文本
@@ -205,7 +229,28 @@ class MultilinePromptNode:
         if processing_info:
             line_count_info += f" | 处理: {', '.join(processing_info)}"
         
-        return formatted_prompt, total_lines, line_count_info, original_prompt
+        # 处理索引功能
+        indexed_line = ""
+        index_info = ""
+        
+        if enable_index:
+            if total_lines == 0:
+                indexed_line = ""
+                index_info = f"索引 {line_index}: 无可用行（文本为空）"
+            elif line_index < 1:
+                indexed_line = ""
+                index_info = f"索引 {line_index}: 无效索引（索引必须从1开始）"
+            elif line_index > total_lines:
+                indexed_line = ""
+                index_info = f"索引 {line_index}: 超出范围（总共 {total_lines} 行）"
+            else:
+                # 获取指定索引的行（索引从1开始，所以减1）
+                indexed_line = processed_lines[line_index - 1]
+                index_info = f"索引 {line_index}: 成功获取第 {line_index} 行（共 {total_lines} 行）"
+        else:
+            index_info = "索引功能未启用"
+        
+        return formatted_prompt, total_lines, line_count_info, original_prompt, indexed_line, index_info
 
 
 # 节点映射配置
