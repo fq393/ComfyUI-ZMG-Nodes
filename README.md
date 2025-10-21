@@ -220,7 +220,7 @@ ComfyUI-ZMG-Nodes/
 
 ## 📝 更新日志
 
-### v1.3.0 (2024-01-XX)
+### v1.3.0 (2024-12-30)
 - **重大修复**: 彻底解决OSS Upload Node的视频编码器兼容性问题
   - **FFmpeg集成**: 优先使用FFmpeg进行视频合成，解决OpenCV编码器限制
   - **智能回退机制**: FFmpeg不可用时自动回退到优化的OpenCV方法
@@ -232,8 +232,10 @@ ComfyUI-ZMG-Nodes/
   - **详细日志**: 增加详细的调试信息和错误报告
 - **性能优化**: 优化帧数据处理和内存使用
 - **稳定性提升**: 增强异常处理和资源清理机制
+- **新增节点**: 添加Elasticsearch更新节点和JSON构建器节点
+- **优化改进**: JsonBuilderNode减少key-value对数量并改进merge_to_key功能
 
-### v1.2.0 (2024-01-XX)
+### v1.2.0 (2024-12-15)
 - **修复**: 优化OSS Upload Node的视频合成功能
 - **改进**: 使用H.264编码器替代mp4v，提升视频兼容性
 - **新增**: 多编码器回退机制（H264/h264/X264/MJPG/mp4v/XVID）
@@ -241,7 +243,7 @@ ComfyUI-ZMG-Nodes/
 - **增强**: 添加详细的视频合成调试日志和错误处理
 - **修复**: 解决视频文件生成失败的问题
 
-### v1.1.0 (2024-01-XX)
+### v1.1.0 (2024-11-20)
 - **修复**: 解决OSS Upload Node的"Return type mismatch"错误
   - 集成AlwaysEqualProxy类型代理，解决ComfyUI类型匹配问题
   - 完美兼容AUDIO等特殊输入类型
