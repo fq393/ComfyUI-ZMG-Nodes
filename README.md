@@ -31,6 +31,16 @@ ComfyUI-ZMG-Nodes是一个专为ComfyUI设计的自定义节点插件包，包�
   - URL验证和超时控制
   - 自定义请求头支持
 
+- **Elasticsearch Update Node** - 专业的Elasticsearch更新节点
+  - **多种操作类型**：支持update_by_query、update、delete_by_query操作
+  - **灵活查询条件**：支持复杂的Elasticsearch查询语法
+  - **脚本更新**：支持自定义更新脚本和参数
+  - **认证支持**：支持Basic认证和其他认证方式
+  - **智能URL构建**：自动构建正确的Elasticsearch API端点
+  - **详细统计**：返回受影响的文档数量和详细响应信息
+  - **错误处理**：完善的错误处理和超时机制
+  - **格式化输出**：自动格式化JSON响应，便于阅读和调试
+
 
 
 ### 🔧 数据处理节点 (ZMGNodes/data)
