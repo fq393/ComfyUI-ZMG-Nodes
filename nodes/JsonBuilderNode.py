@@ -2,6 +2,8 @@ import json
 import re
 from typing import Any, Dict, List, Tuple, Union, Optional
 
+from .utils.TypeUtils import ANY_TYPE
+
 
 class JsonBuilderNode:
     """
@@ -41,11 +43,11 @@ class JsonBuilderNode:
                 "sort_keys": ("BOOLEAN", {"default": False}),
                 
                 # 传递数据
-                "passthrough": ("*", {"default": None}),
+                "passthrough": (ANY_TYPE, {"default": None}),
             }
         }
     
-    RETURN_TYPES = ("STRING", "STRING", "*")
+    RETURN_TYPES = ("STRING", "STRING", ANY_TYPE)
     RETURN_NAMES = ("json_string", "formatted_json", "passthrough")
     FUNCTION = "build_json"
     CATEGORY = "ZMG Nodes/Data"
