@@ -3,9 +3,6 @@ import requests
 from typing import Dict, Any, Tuple, Union
 from .config.NodeCategory import NodeCategory
 
-# ComfyUI类型定义
-any = "*"
-
 
 class ElasticsearchUpdateNode:
     """
@@ -65,11 +62,11 @@ class ElasticsearchUpdateNode:
                 })
             },
             "optional": {
-                "passthrough": (any, {"widget": False})
+                "passthrough": ("*", {"widget": False})
             }
         }
 
-    RETURN_TYPES = ("STRING", "INT", any)
+    RETURN_TYPES = ("STRING", "INT", "*")
     RETURN_NAMES = ("response", "affected_count", "passthrough")
     FUNCTION = "execute_update"
     CATEGORY = NodeCategory.NETWORK

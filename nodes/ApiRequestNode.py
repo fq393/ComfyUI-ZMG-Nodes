@@ -3,9 +3,6 @@ import requests
 from typing import Dict, Any, Tuple, Union
 from .config.NodeCategory import NodeCategory
 
-# ComfyUI类型定义
-any = "*"
-
 
 class APIRequestNode:
     """
@@ -51,11 +48,11 @@ class APIRequestNode:
                     "max": 300,
                     "step": 1
                 }),
-                "anything": (any, {"widget": False})
+                "anything": ("*", {"widget": False})
             },
         }
 
-    RETURN_TYPES = ("STRING", any)
+    RETURN_TYPES = ("STRING", "*")
     RETURN_NAMES = ("response", "passthrough")
     FUNCTION = "make_request"
     CATEGORY = NodeCategory.NETWORK
