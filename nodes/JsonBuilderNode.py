@@ -8,7 +8,7 @@ class JsonBuilderNode:
     JSON构建器节点 - 支持多个key-value输入和JSON对象合并
     
     功能特性：
-    - 支持10个key-value对输入
+    - 支持5个key-value对输入
     - 自动类型识别（字符串、数字、布尔值、JSON对象）
     - 支持合并子JSON对象到父级key
     - 智能JSON解析
@@ -20,7 +20,7 @@ class JsonBuilderNode:
         return {
             "required": {},
             "optional": {
-                # 10个key-value对
+                # 5个key-value对
                 "key1": ("STRING", {"default": "", "multiline": False}),
                 "value1": ("STRING", {"default": "", "multiline": True}),
                 "key2": ("STRING", {"default": "", "multiline": False}),
@@ -31,16 +31,6 @@ class JsonBuilderNode:
                 "value4": ("STRING", {"default": "", "multiline": True}),
                 "key5": ("STRING", {"default": "", "multiline": False}),
                 "value5": ("STRING", {"default": "", "multiline": True}),
-                "key6": ("STRING", {"default": "", "multiline": False}),
-                "value6": ("STRING", {"default": "", "multiline": True}),
-                "key7": ("STRING", {"default": "", "multiline": False}),
-                "value7": ("STRING", {"default": "", "multiline": True}),
-                "key8": ("STRING", {"default": "", "multiline": False}),
-                "value8": ("STRING", {"default": "", "multiline": True}),
-                "key9": ("STRING", {"default": "", "multiline": False}),
-                "value9": ("STRING", {"default": "", "multiline": True}),
-                "key10": ("STRING", {"default": "", "multiline": False}),
-                "value10": ("STRING", {"default": "", "multiline": True}),
                 
                 # 子JSON对象合并
                 "merge_json": ("STRING", {"default": "", "multiline": True}),
@@ -139,23 +129,37 @@ class JsonBuilderNode:
         Args:
             base_obj: 基础JSON对象
             merge_obj: 要合并的JSON对象
-            target_key: 目标key
+            target_key: 目标key，如果为空则合并到根级别
             
         Returns:
             合并后的JSON对象
         """
         result = base_obj.copy()
         
-        if target_key and target_key.strip():
-            # 如果目标key已存在且是字典，则合并
-            if target_key in result and isinstance(result[target_key], dict) and isinstance(merge_obj, dict):
-                result[target_key].update(merge_obj)
+        # 确保merge_obj是有效的
+        if not isinstance(merge_obj, dict):
+            print(f"警告: merge_json不是有效的JSON对象，跳过合并")
+            return result
+        
+        # 处理target_key
+        target_key = target_key.strip() if target_key else ""
+        
+        if target_key:
+            # 如果指定了目标key
+            if target_key in result:
+                # 如果目标key已存在
+                if isinstance(result[target_key], dict):
+                    # 如果现有值是字典，则合并
+                    result[target_key].update(merge_obj)
+                else:
+                    # 如果现有值不是字典，则替换
+                    result[target_key] = merge_obj
             else:
+                # 如果目标key不存在，直接设置
                 result[target_key] = merge_obj
         else:
             # 如果没有指定目标key，直接合并到根级别
-            if isinstance(merge_obj, dict):
-                result.update(merge_obj)
+            result.update(merge_obj)
         
         return result
     
@@ -177,8 +181,8 @@ class JsonBuilderNode:
             # 构建基础JSON对象
             json_obj = {}
             
-            # 处理10个key-value对
-            for i in range(1, 11):
+            # 处理5个key-value对
+            for i in range(1, 6):
                 key = kwargs.get(f"key{i}", "")
                 value = kwargs.get(f"value{i}", "")
                 
@@ -189,9 +193,22 @@ class JsonBuilderNode:
             
             # 处理子JSON对象合并
             if merge_json and merge_json.strip():
+                print(f"调试: 开始处理JSON合并")
+                print(f"调试: merge_json = {merge_json[:100]}...")  # 只显示前100个字符
+                print(f"调试: merge_to_key = '{merge_to_key}'")
+                
                 merge_obj = self.safe_json_parse(merge_json)
                 if merge_obj is not None:
+                    print(f"调试: 成功解析merge_json，包含 {len(merge_obj)} 个键")
+                    print(f"调试: 合并前的json_obj = {json_obj}")
+                    
                     json_obj = self.merge_json_objects(json_obj, merge_obj, merge_to_key.strip())
+                    
+                    print(f"调试: 合并后的json_obj = {json_obj}")
+                else:
+                    print(f"调试: merge_json解析失败")
+            else:
+                print(f"调试: 跳过JSON合并 (merge_json为空)")
             
             # 生成JSON字符串
             if pretty_format:
