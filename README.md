@@ -128,7 +128,6 @@ ComfyUI-ZMG-Nodes是一个专为ComfyUI设计的自定义节点插件包，包�
   - **最小化输出**：返回保存后的`file_path`与`saved`状态
   - **参数说明**：
     - `audio`：多行音频URL输入；支持 `http/https`、`file://`、`data:audio`、`/view?`；取首个有效URL下载
-    - `mono`、`target_sample_rate`：保留占位，当前下载模式不使用
   - **输出说明**：
     - `file_path`：保存到`input`目录的完整路径
     - `saved`：是否保存成功

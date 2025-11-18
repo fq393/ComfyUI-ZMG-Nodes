@@ -1,16 +1,8 @@
 import os
 import io
 import base64
-import json
-import torch
-import numpy as np
 import requests
 from urllib.parse import parse_qs, unquote
-
-try:
-    from pydub import AudioSegment
-except Exception:
-    AudioSegment = None
 
 try:
     import folder_paths
@@ -72,14 +64,6 @@ def _read_bytes_from_url(url: str, timeout: int = 10) -> bytes:
         return f.read()
 
 
-def _bytes_to_audio_segment(data: bytes, format_hint: str | None) -> AudioSegment:
-    if AudioSegment is None:
-        raise ImportError("pydub is required: pip install pydub")
-    if format_hint:
-        return AudioSegment.from_file(io.BytesIO(data), format=format_hint)
-    return AudioSegment.from_file(io.BytesIO(data))
-
-
 def _format_from_url(url: str) -> str | None:
     if url.startswith("data:audio/"):
         semi = url.find(";")
@@ -89,41 +73,6 @@ def _format_from_url(url: str) -> str | None:
     if ext:
         return ext[1:].lower()
     return None
-
-
-def _segment_to_tensor(seg: AudioSegment, mono: bool, target_sample_rate: int) -> tuple[torch.Tensor, int, int]:
-    if mono and seg.channels > 1:
-        seg = seg.set_channels(1)
-    if target_sample_rate and target_sample_rate > 0 and seg.frame_rate != target_sample_rate:
-        seg = seg.set_frame_rate(target_sample_rate)
-    sample_rate = seg.frame_rate
-    channels = seg.channels
-    array = np.array(seg.get_array_of_samples())
-    if channels > 1:
-        array = array.reshape((-1, channels)).T
-    else:
-        array = array.reshape((1, -1))
-    scale = float(1 << (8 * seg.sample_width - 1))
-    waveform = torch.from_numpy(array.astype(np.float32) / scale)
-    return waveform.unsqueeze(0), sample_rate, channels
-
-
-def _concat_waveforms(items: list[dict]) -> dict:
-    if not items:
-        return {
-            "waveform": torch.zeros((1, 1, 16000), dtype=torch.float32),
-            "sample_rate": 16000,
-        }
-    sr = items[0]["sample_rate"]
-    ch = items[0]["waveform"].shape[1]
-    for it in items:
-        if it["sample_rate"] != sr:
-            raise Exception("All audio clips must share the same sample_rate for concat")
-        if it["waveform"].shape[1] != ch:
-            raise Exception("All audio clips must share the same channel count for concat")
-    waveforms = [it["waveform"].squeeze(0) for it in items]
-    concat = torch.cat(waveforms, dim=2)
-    return {"waveform": concat.unsqueeze(0), "sample_rate": sr}
 
 
 class LoadAudioFromUrlNode:
@@ -140,8 +89,6 @@ class LoadAudioFromUrlNode:
                 }),
             },
             "optional": {
-                "mono": ("BOOLEAN", {"default": False, "label_on": "enabled", "label_off": "disabled", "tooltip": "强制单声道"}),
-                "target_sample_rate": ("INT", {"default": 0, "min": 0, "max": 192000, "step": 1000, "tooltip": "重采样到目标采样率，0 表示保持原采样率"}),
             },
         }
 
@@ -152,7 +99,7 @@ class LoadAudioFromUrlNode:
     FUNCTION = "download_audio"
     DESCRIPTION = "从URL下载音频到ComfyUI的input目录，不进行编码或解码"
 
-    def download_audio(self, audio: str, mono: bool = False, target_sample_rate: int = 0):
+    def download_audio(self, audio: str):
         urls = [u.strip() for u in audio.strip().split("\n") if u.strip()]
         if not urls:
             return {"result": ("", False)}
