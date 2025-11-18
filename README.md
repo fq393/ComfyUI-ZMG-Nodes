@@ -129,15 +129,11 @@ ComfyUI-ZMG-Nodes是一个专为ComfyUI设计的自定义节点插件包，包�
   - **标准输出**：输出`{"waveform": Tensor, "sample_rate": int}`格式，兼容上传与视频节点
   - **参数说明**：
     - `audio`：多行音频URL输入；支持 `http/https`、`file://`、`data:audio`、`/view?`
-    - `passthrough`：开启后不做解码，直接输出 `raw_bytes`、`mime`、`filename`
-    - `mono`：强制单声道，仅在关闭透传并解码为 `AUDIO` 时生效
-    - `target_sample_rate`：重采样目标采样率（0 保持原采样率），仅在关闭透传时生效
+    - `mono`：强制单声道
+    - `target_sample_rate`：重采样目标采样率（0 保持原采样率）
   - **输出说明**：
-    - `audio`：AUDIO字典（`waveform`、`sample_rate`），仅在关闭透传时有效
+    - `audio`：AUDIO字典（`waveform`、`sample_rate`）
     - `has_audio`：是否成功获取音频
-    - `raw_bytes`：原始音频字节（透传开启时提供）
-    - `mime`：推断的内容类型（如 `audio/mp3`）
-    - `filename`：建议的文件名（从URL或内部路径推断）
 
 ### ☁️ 云存储节点 (ZMGNodes/cloud)
 - **OSS Upload Node** - 阿里云OSS上传节点
