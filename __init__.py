@@ -8,6 +8,7 @@ from .nodes.SaveVideoRGBA import *
 from .nodes.RemoveEmptyLinesNode import *
 from .nodes.MultilinePromptNode import *
 from .nodes.OSSUploadNode import *
+from .nodes.LoadAudioFromUrlNode import *
 
 NODE_CONFIG = {
     # Network nodes
@@ -30,9 +31,12 @@ NODE_CONFIG = {
     
     # Video processing nodes
     "SaveVideoRGBA": {"class": SaveVideoRGBA, "name": "Save Video (RGBA)"},
-    
+
     # Utility nodes
     "Empty Image Node": {"class": EmptyImageNode, "name": "Empty Image Node"},
+
+    # Audio processing nodes
+    "LoadAudioFromUrlNode": {"class": LoadAudioFromUrlNode, "name": "Load Audio From URL"},
 }
 
 NODE_CLASS_MAPPINGS = {k: v["class"] for k, v in NODE_CONFIG.items()}

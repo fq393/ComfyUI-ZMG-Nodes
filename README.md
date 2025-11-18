@@ -119,7 +119,14 @@ ComfyUI-ZMG-Nodes是一个专为ComfyUI设计的自定义节点插件包，包�
   - **文件名自定义**：支持自定义文件名前缀和格式化
   - **简化界面**：移除复杂的编解码器选择，专注于格式选择
   - **性能优化**：高效的视频编码和内存管理
-  - **错误处理**：完善的错误处理和状态反馈机制
+ - **错误处理**：完善的错误处理和状态反馈机制
+ 
+### 🔊 音频处理节点 (ZMGNodes/audio)
+- **Load Audio From URL Node** - URL音频加载节点
+  - **多源支持**：HTTP/HTTPS、file://、Data URI、ComfyUI内部路径
+  - **拼接处理**：支持多行URL顺序拼接为单一音轨
+  - **采样率与声道**：可选强制单声道与重采样到目标采样率
+  - **标准输出**：输出`{"waveform": Tensor, "sample_rate": int}`格式，兼容上传与视频节点
 
 ### ☁️ 云存储节点 (ZMGNodes/cloud)
 - **OSS Upload Node** - 阿里云OSS上传节点
