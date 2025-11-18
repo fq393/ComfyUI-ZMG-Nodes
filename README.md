@@ -124,11 +124,12 @@ ComfyUI-ZMG-Nodes是一个专为ComfyUI设计的自定义节点插件包，包�
 ### 🔊 音频处理节点 (ZMGNodes/audio)
 - **Load Audio From URL Node** - URL音频加载节点
   - **多源支持**：HTTP/HTTPS、file://、Data URI、ComfyUI内部路径
-  - **下载到INPUT**：直接下载到ComfyUI的`input`目录，不进行音频编码/解码
-  - **最小化输出**：返回保存后的`file_path`与`saved`状态
+  - **下载到INPUT**：直接下载到ComfyUI的`input`目录
+  - **输出AUDIO**：同时输出AUDIO字典（`waveform`、`sample_rate`），仅解码为PCM，不重新编码
   - **参数说明**：
     - `audio`：多行音频URL输入；支持 `http/https`、`file://`、`data:audio`、`/view?`；取首个有效URL下载
   - **输出说明**：
+    - `audio`：AUDIO字典（`waveform`、`sample_rate`）
     - `file_path`：保存到`input`目录的完整路径
     - `saved`：是否保存成功
 
@@ -184,7 +185,7 @@ pip install -r requirements.txt
 ## 📁 项目结构
 
 ```
-ComfyUI-ZMG-Nodes/
+    ComfyUI-ZMG-Nodes/
 ├── __init__.py                 # 主入口文件
 ├── README.md                   # 项目文档
 ├── requirements.txt            # 依赖包列表
@@ -194,7 +195,8 @@ ComfyUI-ZMG-Nodes/
 │   ├── __init__.py             # 节点包初始化文件
 │   ├── ApiRequestNode.py       # API请求节点
 │   ├── JsonParserNode.py       # JSON解析节点
-│   ├── LoadImageFromUrlNode.py # 从URL加载图像节点
+    │   ├── LoadImageFromUrlNode.py # 从URL加载图像节点
+    │   ├── LoadAudioFromUrlNode.py # 从URL加载音频节点
 │   ├── TextToImageNode.py      # 文本转图像节点
 │   ├── SaveVideoRGBA.py        # RGBA视频保存节点
 │   ├── EmptyImageNode.py       # 增强型空图像节点
