@@ -133,7 +133,7 @@ class LoadAudioFromUrlNode:
             "required": {
                 "audio": ("STRING", {
                     "default": "",
-                    "placeholder": "每行一个音频URL，例如\nhttps://example.com/audio.mp3\nfile:///path/to/audio.wav\ndata:audio/wav;base64,...",
+                    "placeholder": "每行一个音频URL，例如\nhttps://example.com/audio.mp3\nfile:///path/to/audio.wav\ndata:audio/wav;base64, ...",
                     "multiline": True,
                     "dynamicPrompts": False,
                 }),
@@ -141,33 +141,59 @@ class LoadAudioFromUrlNode:
             "optional": {
                 "mono": ("BOOLEAN", {"default": False, "label_on": "enabled", "label_off": "disabled"}),
                 "target_sample_rate": ("INT", {"default": 0, "min": 0, "max": 192000, "step": 1000}),
+                "passthrough": ("BOOLEAN", {"default": True, "label_on": "enabled", "label_off": "disabled"}),
             },
         }
 
-    RETURN_TYPES = ("AUDIO", "BOOLEAN")
-    RETURN_NAMES = ("audio", "has_audio")
-    OUTPUT_IS_LIST = (False, False)
+    RETURN_TYPES = ("AUDIO", "BOOLEAN", "BYTES", "STRING", "STRING")
+    RETURN_NAMES = ("audio", "has_audio", "raw_bytes", "mime", "filename")
+    OUTPUT_IS_LIST = (False, False, False, False, False)
     CATEGORY = NodeCategory.AUDIO
     FUNCTION = "load_audio"
-    DESCRIPTION = "从URL加载音频，支持HTTP/HTTPS、file://、data:audio/、ComfyUI内部路径"
+    DESCRIPTION = "从URL加载音频，支持HTTP/HTTPS、file://、data:audio/、ComfyUI内部路径；支持透传原始字节"
 
-    def load_audio(self, audio: str, mono: bool = False, target_sample_rate: int = 0):
+    def load_audio(self, audio: str, mono: bool = False, target_sample_rate: int = 0, passthrough: bool = True):
         urls = [u.strip() for u in audio.strip().split("\n") if u.strip()]
         clips = []
+        raw_bytes = b""
+        mime = ""
+        filename = ""
         for url in urls:
             data = _read_bytes_from_url(url)
             if not data:
                 continue
-            fmt = _format_from_url(url)
-            seg = _bytes_to_audio_segment(data, fmt)
-            waveform, sample_rate, channels = _segment_to_tensor(seg, mono, target_sample_rate)
-            clips.append({"waveform": waveform, "sample_rate": sample_rate, "channels": channels})
-        has_audio = len(clips) > 0
+            if raw_bytes == b"":
+                raw_bytes = data
+                fmt_hint = _format_from_url(url)
+                if fmt_hint:
+                    mime = f"audio/{fmt_hint}"
+                # 生成文件名
+                if url.startswith(('http://', 'https://', 'file://')):
+                    base = url.split('?')[0]
+                    base = base.replace('file://', '')
+                    filename = os.path.basename(base) or 'audio'
+                elif url.startswith(('data:audio/')):
+                    filename = f"audio.{fmt_hint or 'bin'}"
+                elif url.startswith(('/view?', '/api/view?')):
+                    qs_idx = url.find("?")
+                    qs = parse_qs(url[qs_idx + 1:])
+                    name = qs.get("name", qs.get("filename", ["audio"]))[0]
+                    filename = name
+                else:
+                    filename = os.path.basename(url) or 'audio'
+            if not passthrough:
+                fmt = _format_from_url(url)
+                seg = _bytes_to_audio_segment(data, fmt)
+                waveform, sample_rate, channels = _segment_to_tensor(seg, mono, target_sample_rate)
+                clips.append({"waveform": waveform, "sample_rate": sample_rate, "channels": channels})
+        has_audio = len(clips) > 0 or (raw_bytes != b"")
         if not has_audio:
             result = {"waveform": torch.zeros((1, 1, 16000), dtype=torch.float32), "sample_rate": 16000}
-            return {"result": (result, False)}
-        merged = _concat_waveforms(clips)
-        return {"result": (merged, True)}
+            return {"result": (result, False, b"", "", "")}
+        audio_dict = None
+        if not passthrough and clips:
+            audio_dict = _concat_waveforms(clips)
+        return {"result": (audio_dict if audio_dict else {"waveform": torch.zeros((1, 1, 1), dtype=torch.float32), "sample_rate": 1}, True, raw_bytes, mime or "application/octet-stream", filename or "audio")}
 
 
 NODE_CLASS_MAPPINGS = {
