@@ -195,8 +195,8 @@ pip install -r requirements.txt
 │   ├── __init__.py             # 节点包初始化文件
 │   ├── ApiRequestNode.py       # API请求节点
 │   ├── JsonParserNode.py       # JSON解析节点
-    │   ├── LoadImageFromUrlNode.py # 从URL加载图像节点
-    │   ├── LoadAudioFromUrlNode.py # 从URL加载音频节点
+│   ├── LoadImageFromUrlNode.py # 从URL加载图像节点
+│   ├── LoadAudioFromUrlNode.py # 从URL加载音频节点
 │   ├── TextToImageNode.py      # 文本转图像节点
 │   ├── SaveVideoRGBA.py        # RGBA视频保存节点
 │   ├── EmptyImageNode.py       # 增强型空图像节点
