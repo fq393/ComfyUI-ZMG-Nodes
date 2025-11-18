@@ -647,8 +647,16 @@ class OSSUploadNode:
 
     def _convert_input_to_bytes(self, input_data: Any, content_type: str, video_fps: float = 30.0) -> Tuple[bytes, str, str]:
         """将输入数据转换为字节数据"""
-        
-        # 处理可能的文件/视频对象（包含路径或文件句柄）
+        # 直接处理字符串文件路径（优先判断，避免误判为文本）
+        if isinstance(input_data, str) and os.path.isfile(input_data):
+            file_path = input_data
+            with open(file_path, 'rb') as f:
+                file_data = f.read()
+            actual_filename = os.path.basename(file_path)
+            detected_content_type = content_type or (mimetypes.guess_type(actual_filename)[0] or 'application/octet-stream')
+            return file_data, actual_filename, detected_content_type
+
+        # 处理包含路径/句柄/字节的对象（例如ComfyAPI的视频对象）
         try:
             if hasattr(input_data, 'path') and isinstance(getattr(input_data, 'path'), str) and os.path.isfile(getattr(input_data, 'path')):
                 file_path = getattr(input_data, 'path')
@@ -665,6 +673,13 @@ class OSSUploadNode:
                     actual_filename = os.path.basename(file_path)
                     detected_content_type = content_type or (mimetypes.guess_type(actual_filename)[0] or 'application/octet-stream')
                     return file_data, actual_filename, detected_content_type
+            if hasattr(input_data, 'video_path') and isinstance(getattr(input_data, 'video_path'), str) and os.path.isfile(getattr(input_data, 'video_path')):
+                file_path = getattr(input_data, 'video_path')
+                with open(file_path, 'rb') as f:
+                    file_data = f.read()
+                actual_filename = os.path.basename(file_path)
+                detected_content_type = content_type or (mimetypes.guess_type(actual_filename)[0] or 'application/octet-stream')
+                return file_data, actual_filename, detected_content_type
             if hasattr(input_data, 'file') and hasattr(getattr(input_data, 'file'), 'read'):
                 fobj = getattr(input_data, 'file')
                 file_data = fobj.read()
@@ -674,7 +689,6 @@ class OSSUploadNode:
                 return file_data, actual_filename, detected_content_type
             if hasattr(input_data, 'to_bytes') and callable(getattr(input_data, 'to_bytes')):
                 file_data = input_data.to_bytes()
-                # 尝试推断文件名/类型
                 fname = getattr(input_data, 'filename', 'file.bin')
                 actual_filename = os.path.basename(fname)
                 detected_content_type = content_type or (mimetypes.guess_type(actual_filename)[0] or 'application/octet-stream')
@@ -685,6 +699,18 @@ class OSSUploadNode:
                 actual_filename = os.path.basename(fname)
                 detected_content_type = content_type or (mimetypes.guess_type(actual_filename)[0] or 'application/octet-stream')
                 return file_data, actual_filename, detected_content_type
+            # 通过repr识别ComfyAPI视频包装对象
+            obj_repr = repr(input_data)
+            if 'VideoFromFile' in obj_repr:
+                for attr in ['path', 'video_path', 'filepath', 'file_path']:
+                    if hasattr(input_data, attr):
+                        p = getattr(input_data, attr)
+                        if isinstance(p, str) and os.path.isfile(p):
+                            with open(p, 'rb') as f:
+                                file_data = f.read()
+                            actual_filename = os.path.basename(p)
+                            detected_content_type = content_type or (mimetypes.guess_type(actual_filename)[0] or 'application/octet-stream')
+                            return file_data, actual_filename, detected_content_type
         except Exception:
             pass
 
