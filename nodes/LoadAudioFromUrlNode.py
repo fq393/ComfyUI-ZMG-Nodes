@@ -5,7 +5,7 @@ import json
 import torch
 import numpy as np
 import requests
-from urllib.parse import parse_qs
+from urllib.parse import parse_qs, unquote
 
 try:
     from pydub import AudioSegment
@@ -145,30 +145,48 @@ class LoadAudioFromUrlNode:
             },
         }
 
-    RETURN_TYPES = ("AUDIO", "BOOLEAN")
-    RETURN_NAMES = ("audio", "has_audio")
+    RETURN_TYPES = ("STRING", "BOOLEAN")
+    RETURN_NAMES = ("file_path", "saved")
     OUTPUT_IS_LIST = (False, False)
     CATEGORY = NodeCategory.AUDIO
-    FUNCTION = "load_audio"
-    DESCRIPTION = "从URL加载音频，支持HTTP/HTTPS、file://、data:audio/、ComfyUI内部路径；参数：audio(多源URL)、mono(单声道)、target_sample_rate(重采样)"
+    FUNCTION = "download_audio"
+    DESCRIPTION = "从URL下载音频到ComfyUI的input目录，不进行编码或解码"
 
-    def load_audio(self, audio: str, mono: bool = False, target_sample_rate: int = 0):
+    def download_audio(self, audio: str, mono: bool = False, target_sample_rate: int = 0):
         urls = [u.strip() for u in audio.strip().split("\n") if u.strip()]
-        clips = []
-        for url in urls:
-            data = _read_bytes_from_url(url)
-            if not data:
-                continue
-            fmt = _format_from_url(url)
-            seg = _bytes_to_audio_segment(data, fmt)
-            waveform, sample_rate, channels = _segment_to_tensor(seg, mono, target_sample_rate)
-            clips.append({"waveform": waveform, "sample_rate": sample_rate, "channels": channels})
-        has_audio = len(clips) > 0
-        if not has_audio:
-            result = {"waveform": torch.zeros((1, 1, 16000), dtype=torch.float32), "sample_rate": 16000}
-            return {"result": (result, False)}
-        merged = _concat_waveforms(clips)
-        return {"result": (merged, True)}
+        if not urls:
+            return {"result": ("", False)}
+        url = urls[0]
+        data = _read_bytes_from_url(url)
+        if not data:
+            return {"result": ("", False)}
+        fmt = _format_from_url(url) or "mp3"
+        base_name = "audio"
+        if url.startswith(('http://', 'https://', 'file://')):
+            base = url.split('?')[0].replace('file://', '')
+            bn = os.path.basename(base)
+            if bn:
+                base_name = unquote(bn)
+        elif url.startswith(('data:audio/')):
+            base_name = f"audio.{fmt}"
+        elif url.startswith(('/view?', '/api/view?')):
+            qs_idx = url.find("?")
+            qs = parse_qs(url[qs_idx + 1:])
+            name = qs.get("name", qs.get("filename", ["audio"]))[0]
+            base_name = unquote(name)
+        if not os.path.splitext(base_name)[1]:
+            base_name = f"{base_name}.{fmt}"
+        out_dir = folder_paths.get_input_directory() if folder_paths else os.path.join(os.getcwd(), "input")
+        os.makedirs(out_dir, exist_ok=True)
+        save_path = os.path.join(out_dir, base_name)
+        idx = 1
+        while os.path.exists(save_path):
+            root, ext = os.path.splitext(base_name)
+            save_path = os.path.join(out_dir, f"{root}_{idx}{ext}")
+            idx += 1
+        with open(save_path, "wb") as f:
+            f.write(data)
+        return {"result": (save_path, True)}
 
 
 NODE_CLASS_MAPPINGS = {
