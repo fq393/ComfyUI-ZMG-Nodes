@@ -2,12 +2,19 @@ import os
 import io
 import base64
 import requests
+import torch
+import numpy as np
 from urllib.parse import parse_qs, unquote
 
 try:
     import folder_paths
 except Exception:
     folder_paths = None
+
+try:
+    from pydub import AudioSegment
+except Exception:
+    AudioSegment = None
 
 from .config.NodeCategory import NodeCategory
 
@@ -75,6 +82,23 @@ def _format_from_url(url: str) -> str | None:
     return None
 
 
+def _decode_audio_bytes(data: bytes, fmt_hint: str | None):
+    if AudioSegment is not None:
+        seg = AudioSegment.from_file(io.BytesIO(data), format=fmt_hint) if fmt_hint else AudioSegment.from_file(io.BytesIO(data))
+        sample_rate = seg.frame_rate
+        channels = seg.channels
+        array = np.array(seg.get_array_of_samples())
+        if channels > 1:
+            array = array.reshape((-1, channels)).T
+        else:
+            array = array.reshape((1, -1))
+        scale = float(1 << (8 * seg.sample_width - 1))
+        waveform = torch.from_numpy(array.astype(np.float32) / scale).unsqueeze(0)
+        return {"waveform": waveform, "sample_rate": sample_rate}
+    # 最小回退：无法解码时返回占位静音
+    return {"waveform": torch.zeros((1, 1, 1), dtype=torch.float32), "sample_rate": 1}
+
+
 class LoadAudioFromUrlNode:
     @classmethod
     def INPUT_TYPES(cls):
@@ -92,21 +116,23 @@ class LoadAudioFromUrlNode:
             },
         }
 
-    RETURN_TYPES = ("STRING", "BOOLEAN")
-    RETURN_NAMES = ("file_path", "saved")
-    OUTPUT_IS_LIST = (False, False)
+    RETURN_TYPES = ("AUDIO", "STRING", "BOOLEAN")
+    RETURN_NAMES = ("audio", "file_path", "saved")
+    OUTPUT_IS_LIST = (False, False, False)
     CATEGORY = NodeCategory.AUDIO
     FUNCTION = "download_audio"
-    DESCRIPTION = "从URL下载音频到ComfyUI的input目录，不进行编码或解码"
+    DESCRIPTION = "从URL下载音频到ComfyUI的input目录，并输出AUDIO字典（仅解码为PCM，不重新编码）"
 
     def download_audio(self, audio: str):
         urls = [u.strip() for u in audio.strip().split("\n") if u.strip()]
         if not urls:
-            return {"result": ("", False)}
+            empty = {"waveform": torch.zeros((1, 1, 1), dtype=torch.float32), "sample_rate": 1}
+            return {"result": (empty, "", False)}
         url = urls[0]
         data = _read_bytes_from_url(url)
         if not data:
-            return {"result": ("", False)}
+            empty = {"waveform": torch.zeros((1, 1, 1), dtype=torch.float32), "sample_rate": 1}
+            return {"result": (empty, "", False)}
         fmt = _format_from_url(url) or "mp3"
         base_name = "audio"
         if url.startswith(('http://', 'https://', 'file://')):
@@ -133,7 +159,9 @@ class LoadAudioFromUrlNode:
             idx += 1
         with open(save_path, "wb") as f:
             f.write(data)
-        return {"result": (save_path, True)}
+        fmt_hint = _format_from_url(url)
+        audio_dict = _decode_audio_bytes(data, fmt_hint)
+        return {"result": (audio_dict, save_path, True)}
 
 
 NODE_CLASS_MAPPINGS = {
