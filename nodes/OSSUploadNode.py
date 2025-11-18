@@ -648,6 +648,46 @@ class OSSUploadNode:
     def _convert_input_to_bytes(self, input_data: Any, content_type: str, video_fps: float = 30.0) -> Tuple[bytes, str, str]:
         """将输入数据转换为字节数据"""
         
+        # 处理可能的文件/视频对象（包含路径或文件句柄）
+        try:
+            if hasattr(input_data, 'path') and isinstance(getattr(input_data, 'path'), str) and os.path.isfile(getattr(input_data, 'path')):
+                file_path = getattr(input_data, 'path')
+                with open(file_path, 'rb') as f:
+                    file_data = f.read()
+                actual_filename = os.path.basename(file_path)
+                detected_content_type = content_type or (mimetypes.guess_type(actual_filename)[0] or 'application/octet-stream')
+                return file_data, actual_filename, detected_content_type
+            if hasattr(input_data, 'get_path'):
+                file_path = input_data.get_path()
+                if isinstance(file_path, str) and os.path.isfile(file_path):
+                    with open(file_path, 'rb') as f:
+                        file_data = f.read()
+                    actual_filename = os.path.basename(file_path)
+                    detected_content_type = content_type or (mimetypes.guess_type(actual_filename)[0] or 'application/octet-stream')
+                    return file_data, actual_filename, detected_content_type
+            if hasattr(input_data, 'file') and hasattr(getattr(input_data, 'file'), 'read'):
+                fobj = getattr(input_data, 'file')
+                file_data = fobj.read()
+                fname = getattr(input_data, 'filename', getattr(fobj, 'name', self._generate_random_filename('bin')))
+                actual_filename = os.path.basename(fname)
+                detected_content_type = content_type or (mimetypes.guess_type(actual_filename)[0] or 'application/octet-stream')
+                return file_data, actual_filename, detected_content_type
+            if hasattr(input_data, 'to_bytes') and callable(getattr(input_data, 'to_bytes')):
+                file_data = input_data.to_bytes()
+                # 尝试推断文件名/类型
+                fname = getattr(input_data, 'filename', 'file.bin')
+                actual_filename = os.path.basename(fname)
+                detected_content_type = content_type or (mimetypes.guess_type(actual_filename)[0] or 'application/octet-stream')
+                return file_data, actual_filename, detected_content_type
+            if hasattr(input_data, 'bytes'):
+                file_data = getattr(input_data, 'bytes')
+                fname = getattr(input_data, 'filename', 'file.bin')
+                actual_filename = os.path.basename(fname)
+                detected_content_type = content_type or (mimetypes.guess_type(actual_filename)[0] or 'application/octet-stream')
+                return file_data, actual_filename, detected_content_type
+        except Exception:
+            pass
+
         # 处理AUDIO类型数据（ComfyUI音频格式）
         if isinstance(input_data, dict) and 'waveform' in input_data and 'sample_rate' in input_data:
             # ComfyUI音频格式: {"waveform": tensor, "sample_rate": int}
