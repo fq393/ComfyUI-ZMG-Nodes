@@ -76,10 +76,21 @@ def _format_from_url(url: str) -> str | None:
         semi = url.find(";")
         if semi != -1:
             return url[len("data:audio/"):semi]
+        return None
+    if url.startswith(("/view?", "/api/view?")):
+        qs_idx = url.find("?")
+        qs = parse_qs(url[qs_idx + 1:])
+        filename = qs.get("name", qs.get("filename", [""]))[0]
+        filename = unquote(filename)
+        _, ext = os.path.splitext(filename)
+        return ext[1:].lower() if ext else None
+    if url.startswith(("http://", "https://", "file://")):
+        base = url.split("?")[0]
+        base = base.replace("file://", "")
+        _, ext = os.path.splitext(base)
+        return ext[1:].lower() if ext else None
     _, ext = os.path.splitext(url)
-    if ext:
-        return ext[1:].lower()
-    return None
+    return ext[1:].lower() if ext else None
 
 
 def _decode_audio_bytes(data: bytes, fmt_hint: str | None):
