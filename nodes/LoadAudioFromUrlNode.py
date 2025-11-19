@@ -127,9 +127,9 @@ class LoadAudioFromUrlNode:
             },
         }
 
-    RETURN_TYPES = ("AUDIO", "STRING", "BOOLEAN")
-    RETURN_NAMES = ("audio", "file_path", "saved")
-    OUTPUT_IS_LIST = (False, False, False)
+    RETURN_TYPES = ("AUDIO", "STRING", "BOOLEAN", "BOOLEAN")
+    RETURN_NAMES = ("audio", "file_path", "saved", "has_audio")
+    OUTPUT_IS_LIST = (False, False, False, False)
     CATEGORY = NodeCategory.AUDIO
     FUNCTION = "download_audio"
     DESCRIPTION = "从URL下载音频到ComfyUI的input目录，并输出AUDIO字典（仅解码为PCM，不重新编码）"
@@ -138,12 +138,12 @@ class LoadAudioFromUrlNode:
         urls = [u.strip() for u in audio.strip().split("\n") if u.strip()]
         if not urls:
             empty = {"waveform": torch.zeros((1, 1, 1), dtype=torch.float32), "sample_rate": 1}
-            return {"result": (empty, "", False)}
+            return {"result": (empty, "", False, False)}
         url = urls[0]
         data = _read_bytes_from_url(url)
         if not data:
             empty = {"waveform": torch.zeros((1, 1, 1), dtype=torch.float32), "sample_rate": 1}
-            return {"result": (empty, "", False)}
+            return {"result": (empty, "", False, False)}
         fmt = _format_from_url(url) or "mp3"
         base_name = "audio"
         if url.startswith(('http://', 'https://', 'file://')):
@@ -172,7 +172,8 @@ class LoadAudioFromUrlNode:
             f.write(data)
         fmt_hint = _format_from_url(url)
         audio_dict = _decode_audio_bytes(data, fmt_hint)
-        return {"result": (audio_dict, save_path, True)}
+        has_audio = bool(int(audio_dict.get("sample_rate", 0)) > 1 and audio_dict.get("waveform", torch.zeros(())).numel() > 1)
+        return {"result": (audio_dict, save_path, True, has_audio)}
 
 
 NODE_CLASS_MAPPINGS = {
