@@ -129,11 +129,12 @@ ComfyUI-ZMG-Nodes是一个专为ComfyUI设计的自定义节点插件包，包�
   - **音频混流**：自动按容器选择音频编码（MP4/MOV→AAC，WEBM→Opus），可选择`trim_to_audio`
   - **播放增强**：支持`pingpong`乒乓播放以延长时长
   - **保存位置**：`save_output` 控制保存到`output`或`temp`
+  - **输出类型**：返回单一 `VIDEO` 输出，兼容 `IO.VIDEO` 类型节点连接
   - **使用示例**：
     1. 用 `Text To Image` 或其它节点得到 `IMAGE`
     2. 用 `Load Audio From URL` 得到 `AUDIO`
     3. 连接到 `Combine Image+Audio → Video`，设置 `frame_rate=24`、`format=video/h264-mp4`、`crf=19`
-    4. 运行后在 `output` 或 `temp` 目录获得合成视频
+    4. 输出即为 `VIDEO`，可直接接到后续视频处理/上传节点
  
 ### 🔊 音频处理节点 (ZMGNodes/audio)
 - **Load Audio From URL Node** - URL音频加载节点

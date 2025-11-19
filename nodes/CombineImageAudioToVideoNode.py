@@ -3,6 +3,8 @@ import subprocess
 import torch
 import numpy as np
 import folder_paths
+from comfy.comfy_types import IO
+from comfy_api.latest import InputImpl
 from .config.NodeCategory import NodeCategory
 
 
@@ -46,9 +48,9 @@ class CombineImageAudioToVideoNode:
             },
         }
 
-    RETURN_TYPES = ("STRING", "STRING", "BOOLEAN")
-    RETURN_NAMES = ("file_path", "format", "saved")
-    OUTPUT_IS_LIST = (False, False, False)
+    RETURN_TYPES = (IO.VIDEO,)
+    RETURN_NAMES = ("video",)
+    OUTPUT_IS_LIST = (False,)
     OUTPUT_NODE = True
     CATEGORY = NodeCategory.IMAGE
     FUNCTION = "combine"
@@ -145,8 +147,7 @@ class CombineImageAudioToVideoNode:
                 err = proc2.stderr.read()
                 raise Exception(err.decode("utf-8", errors="ignore"))
 
-        saved = os.path.exists(final_path)
-        return (final_path, format, saved)
+        return (InputImpl.VideoFromFile(final_path),)
 
 
 NODE_CLASS_MAPPINGS = {
