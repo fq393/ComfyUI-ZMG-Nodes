@@ -26,8 +26,8 @@ class CombineImageAudioToVideoNode:
         return {
             "required": {
                 "images": ("IMAGE", {"tooltip": "输入帧序列，形状 BxHxWxC，C=3/4"}),
-                "frame_rate": ("FLOAT", {"default": 24.0, "min": 1.0, "step": 1.0, "tooltip": "视频帧率，常用 24/25/30"}),
-                "filename_prefix": ("STRING", {"default": "AnimateDiff", "tooltip": "文件名前缀，系统会自动追加计数与时间戳"}),
+                "frame_rate": ("FLOAT", {"default": 24.0, "min": 1.0, "step": 1.0, "tooltip": "视频帧率，常用 16/24/30"}),
+                "filename_prefix": ("STRING", {"default": "ZMG", "tooltip": "文件名前缀，系统会自动追加计数与时间戳"}),
                 "format": ([
                     "video/h264-mp4",
                     "video/vp9-webm",
