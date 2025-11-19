@@ -9,6 +9,7 @@ from .nodes.RemoveEmptyLinesNode import *
 from .nodes.MultilinePromptNode import *
 from .nodes.OSSUploadNode import *
 from .nodes.LoadAudioFromUrlNode import *
+from .nodes.CombineImageAudioToVideoNode import *
 
 NODE_CONFIG = {
     # Network nodes
@@ -31,6 +32,7 @@ NODE_CONFIG = {
     
     # Video processing nodes
     "SaveVideoRGBA": {"class": SaveVideoRGBA, "name": "Save Video (RGBA)"},
+    "CombineImageAudioToVideoNode": {"class": CombineImageAudioToVideoNode, "name": "Combine Image+Audio → Video"},
 
     # Utility nodes
     "Empty Image Node": {"class": EmptyImageNode, "name": "Empty Image Node"},
