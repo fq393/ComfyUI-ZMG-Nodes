@@ -160,6 +160,7 @@ ComfyUI-ZMG-Nodes是一个专为ComfyUI设计的自定义节点插件包，包�
     - `audio`：AUDIO字典（`waveform`、`sample_rate`）
     - `file_path`：保存到`input`目录的完整路径
     - `saved`：是否保存成功
+    - `has_audio`：是否存在有效音频（True/False）
 
 ### ☁️ 云存储节点 (ZMGNodes/cloud)
 - **OSS Upload Node** - 阿里云OSS上传节点
@@ -209,6 +210,33 @@ pip install -r requirements.txt
 ```
 
 3. 重启ComfyUI
+
+## 📁 项目结构
+
+```
+    ComfyUI-ZMG-Nodes/
+├── __init__.py                 # 主入口文件
+├── README.md                   # 项目文档
+├── requirements.txt            # 依赖包列表
+├── fonts/                      # 字体文件目录
+│   └── Songti.ttc              # 宋体字体文件
+├── nodes/                      # 节点实现目录
+│   ├── __init__.py             # 节点包初始化文件
+│   ├── ApiRequestNode.py       # API请求节点
+│   ├── JsonParserNode.py       # JSON解析节点
+│   ├── LoadImageFromUrlNode.py # 从URL加载图像节点
+│   ├── LoadAudioFromUrlNode.py # 从URL加载音频节点
+│   ├── TextToImageNode.py      # 文本转图像节点
+│   ├── SaveVideoRGBA.py        # RGBA视频保存节点
+│   ├── CombineImageAudioToVideoNode.py # 图片+音频合成视频节点
+│   ├── EmptyImageNode.py       # 增强型空图像节点
+│   └── config/                 # 配置文件目录
+│       └── NodeCategory.py     # 节点分类配置
+└── web/                        # Web资源目录
+    ├── text-switch-case.js     # 文本大小写切换脚本
+    ├── upload.js               # 上传功能脚本
+    └── utils.js                # 工具函数脚本
+```
 
 
 ## 🤝 贡献指南
