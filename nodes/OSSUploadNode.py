@@ -647,7 +647,8 @@ class OSSUploadNode:
 
     def _convert_input_to_bytes(self, input_data: Any, content_type: str, video_fps: float = 30.0) -> Tuple[bytes, str, str]:
         """将输入数据转换为字节数据"""
-        # 直接处理字符串文件路径（优先判断，避免误判为文本）
+        
+        # 优先：字符串且是文件路径
         if isinstance(input_data, str) and os.path.isfile(input_data):
             file_path = input_data
             with open(file_path, 'rb') as f:
@@ -656,64 +657,69 @@ class OSSUploadNode:
             detected_content_type = content_type or (mimetypes.guess_type(actual_filename)[0] or 'application/octet-stream')
             return file_data, actual_filename, detected_content_type
 
-        # 处理包含路径/句柄/字节的对象（例如ComfyAPI的视频对象）
-        try:
-            if hasattr(input_data, 'path') and isinstance(getattr(input_data, 'path'), str) and os.path.isfile(getattr(input_data, 'path')):
-                file_path = getattr(input_data, 'path')
-                with open(file_path, 'rb') as f:
-                    file_data = f.read()
-                actual_filename = os.path.basename(file_path)
-                detected_content_type = content_type or (mimetypes.guess_type(actual_filename)[0] or 'application/octet-stream')
-                return file_data, actual_filename, detected_content_type
-            if hasattr(input_data, 'get_path'):
-                file_path = input_data.get_path()
-                if isinstance(file_path, str) and os.path.isfile(file_path):
-                    with open(file_path, 'rb') as f:
-                        file_data = f.read()
-                    actual_filename = os.path.basename(file_path)
-                    detected_content_type = content_type or (mimetypes.guess_type(actual_filename)[0] or 'application/octet-stream')
-                    return file_data, actual_filename, detected_content_type
-            if hasattr(input_data, 'video_path') and isinstance(getattr(input_data, 'video_path'), str) and os.path.isfile(getattr(input_data, 'video_path')):
-                file_path = getattr(input_data, 'video_path')
-                with open(file_path, 'rb') as f:
-                    file_data = f.read()
-                actual_filename = os.path.basename(file_path)
-                detected_content_type = content_type or (mimetypes.guess_type(actual_filename)[0] or 'application/octet-stream')
-                return file_data, actual_filename, detected_content_type
-            if hasattr(input_data, 'file') and hasattr(getattr(input_data, 'file'), 'read'):
-                fobj = getattr(input_data, 'file')
-                file_data = fobj.read()
-                fname = getattr(input_data, 'filename', getattr(fobj, 'name', self._generate_random_filename('bin')))
-                actual_filename = os.path.basename(fname)
-                detected_content_type = content_type or (mimetypes.guess_type(actual_filename)[0] or 'application/octet-stream')
-                return file_data, actual_filename, detected_content_type
-            if hasattr(input_data, 'to_bytes') and callable(getattr(input_data, 'to_bytes')):
-                file_data = input_data.to_bytes()
-                fname = getattr(input_data, 'filename', 'file.bin')
-                actual_filename = os.path.basename(fname)
-                detected_content_type = content_type or (mimetypes.guess_type(actual_filename)[0] or 'application/octet-stream')
-                return file_data, actual_filename, detected_content_type
-            if hasattr(input_data, 'bytes'):
-                file_data = getattr(input_data, 'bytes')
-                fname = getattr(input_data, 'filename', 'file.bin')
-                actual_filename = os.path.basename(fname)
-                detected_content_type = content_type or (mimetypes.guess_type(actual_filename)[0] or 'application/octet-stream')
-                return file_data, actual_filename, detected_content_type
-            # 通过repr识别ComfyAPI视频包装对象
-            obj_repr = repr(input_data)
-            if 'VideoFromFile' in obj_repr:
-                for attr in ['path', 'video_path', 'filepath', 'file_path']:
-                    if hasattr(input_data, attr):
-                        p = getattr(input_data, attr)
+        # 尝试：对象中提取文件路径/句柄/字节
+        def try_extract_file_from_object(obj) -> Optional[Tuple[bytes, str, str]]:
+            try:
+                # 常见属性名称
+                candidate_attrs = ['path', 'video_path', 'file_path', 'filepath']
+                for attr in candidate_attrs:
+                    if hasattr(obj, attr):
+                        p = getattr(obj, attr)
                         if isinstance(p, str) and os.path.isfile(p):
                             with open(p, 'rb') as f:
-                                file_data = f.read()
-                            actual_filename = os.path.basename(p)
-                            detected_content_type = content_type or (mimetypes.guess_type(actual_filename)[0] or 'application/octet-stream')
-                            return file_data, actual_filename, detected_content_type
-        except Exception:
-            pass
+                                data = f.read()
+                            name = os.path.basename(p)
+                            ctype = content_type or (mimetypes.guess_type(name)[0] or 'application/octet-stream')
+                            return data, name, ctype
+                # 文件句柄
+                if hasattr(obj, 'file') and hasattr(getattr(obj, 'file'), 'read'):
+                    fobj = getattr(obj, 'file')
+                    data = fobj.read()
+                    name = getattr(obj, 'filename', getattr(fobj, 'name', self._generate_random_filename('bin')))
+                    name = os.path.basename(name)
+                    ctype = content_type or (mimetypes.guess_type(name)[0] or 'application/octet-stream')
+                    return data, name, ctype
+                # 原始字节
+                if hasattr(obj, 'to_bytes') and callable(getattr(obj, 'to_bytes')):
+                    data = obj.to_bytes()
+                    name = os.path.basename(getattr(obj, 'filename', 'file.bin'))
+                    ctype = content_type or (mimetypes.guess_type(name)[0] or 'application/octet-stream')
+                    return data, name, ctype
+                if hasattr(obj, 'bytes'):
+                    data = getattr(obj, 'bytes')
+                    name = os.path.basename(getattr(obj, 'filename', 'file.bin'))
+                    ctype = content_type or (mimetypes.guess_type(name)[0] or 'application/octet-stream')
+                    return data, name, ctype
+                # 扫描 __dict__ 中的所有字符串属性，寻找存在的路径
+                if hasattr(obj, '__dict__') and isinstance(obj.__dict__, dict):
+                    for k, v in obj.__dict__.items():
+                        if isinstance(v, str) and os.path.isfile(v):
+                            with open(v, 'rb') as f:
+                                data = f.read()
+                            name = os.path.basename(v)
+                            ctype = content_type or (mimetypes.guess_type(name)[0] or 'application/octet-stream')
+                            return data, name, ctype
+                # repr 探测 ComfyAPI 视频对象
+                r = repr(obj)
+                if 'VideoFromFile' in r:
+                    # 最后再尝试常见属性
+                    for attr in candidate_attrs + ['filename', 'name']:
+                        if hasattr(obj, attr):
+                            p = getattr(obj, attr)
+                            if isinstance(p, str) and os.path.isfile(p):
+                                with open(p, 'rb') as f:
+                                    data = f.read()
+                                name = os.path.basename(p)
+                                ctype = content_type or (mimetypes.guess_type(name)[0] or 'application/octet-stream')
+                                return data, name, ctype
+            except Exception:
+                pass
+            return None
 
+        extracted = try_extract_file_from_object(input_data)
+        if extracted is not None:
+            return extracted
+        
         # 处理AUDIO类型数据（ComfyUI音频格式）
         if isinstance(input_data, dict) and 'waveform' in input_data and 'sample_rate' in input_data:
             # ComfyUI音频格式: {"waveform": tensor, "sample_rate": int}
