@@ -129,12 +129,25 @@ ComfyUI-ZMG-Nodes是一个专为ComfyUI设计的自定义节点插件包，包�
   - **音频混流**：自动按容器选择音频编码（MP4/MOV→AAC，WEBM→Opus），可选择`trim_to_audio`
   - **播放增强**：支持`pingpong`乒乓播放以延长时长
   - **保存位置**：`save_output` 控制保存到`output`或`temp`
+  - **命名规则**：输出文件名包含计数与时间戳，避免重名，例如 `AnimateDiff_00001_20251119_103522_123456.mp4`
   - **输出类型**：返回单一 `VIDEO` 输出，兼容 `IO.VIDEO` 类型节点连接
   - **使用示例**：
     1. 用 `Text To Image` 或其它节点得到 `IMAGE`
     2. 用 `Load Audio From URL` 得到 `AUDIO`
     3. 连接到 `Combine Image+Audio → Video`，设置 `frame_rate=24`、`format=video/h264-mp4`、`crf=19`
     4. 输出即为 `VIDEO`，可直接接到后续视频处理/上传节点
+
+  **参数说明**
+  - `images`: 输入帧序列，形状 `B x H x W x C`，`C=3/4`
+  - `frame_rate`: 视频帧率，常用 `24/25/30`
+  - `filename_prefix`: 文件名前缀，系统会自动追加计数与时间戳
+  - `format`: 视频容器与编码，`mp4(H.264)`、`webm(VP9)`、`mov(ProRes)`
+  - `pix_fmt`: 像素格式，`yuv420p`（无透明）、`yuva420p/yuva444p10le`（有透明）
+  - `crf`: 质量系数，越小越清晰、体积越大，建议 `18–23`
+  - `save_metadata`: 写入创建时间等元数据
+  - `trim_to_audio`: 按音频长度裁剪；关闭则为视频补齐静音
+  - `pingpong`: 乒乓播放，延长视频时长
+  - `save_output`: 保存到 `output`；关闭保存到 `temp`
  
 ### 🔊 音频处理节点 (ZMGNodes/audio)
 - **Load Audio From URL Node** - URL音频加载节点
