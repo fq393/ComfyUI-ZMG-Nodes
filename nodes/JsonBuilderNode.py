@@ -1,6 +1,7 @@
 import json
 import re
 from typing import Any, Dict, List, Tuple, Union, Optional
+from .config.NodeCategory import NodeCategory
 
 from .utils.TypeUtils import ANY_TYPE
 
@@ -50,7 +51,7 @@ class JsonBuilderNode:
     RETURN_TYPES = ("STRING", "STRING", ANY_TYPE)
     RETURN_NAMES = ("json_string", "formatted_json", "passthrough")
     FUNCTION = "build_json"
-    CATEGORY = "ZMG Nodes/Data"
+    CATEGORY = NodeCategory.DATA
     
     def parse_value(self, value_str: str) -> Any:
         """

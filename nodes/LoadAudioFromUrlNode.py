@@ -94,6 +94,8 @@ def _format_from_url(url: str) -> str | None:
 
 
 def _decode_audio_bytes(data: bytes, fmt_hint: str | None):
+    if AudioSegment is None:
+        raise ImportError("pydub is not installed. Please install it using 'pip install pydub' to use LoadAudioFromUrlNode.")
     if AudioSegment is not None:
         seg = AudioSegment.from_file(io.BytesIO(data), format=fmt_hint) if fmt_hint else AudioSegment.from_file(io.BytesIO(data))
         sample_rate = seg.frame_rate
