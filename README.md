@@ -71,6 +71,14 @@ ComfyUI-ZMG-Nodes是一个专为ComfyUI设计的自定义节点插件包，包�
   - **灵活配置**：多种参数组合满足不同需求
 
 ### 📝 文本处理节点 (ZMGNodes/text)
+- **Qwen Image 2.1 Prompt Enhancer (GPUStack)** - 用 OpenAI 兼容的 GPUStack 大模型扩写文生图提示词
+  - 输入中文主题，输出可直接连接到 `Text to Image (Qwen Image 2.1)` 的 `prompt` 输入的 `STRING`
+  - 默认系统提示词保留用户指定的主体、数量、颜色、位置与画面文字，只补充静态图像的构图、材质和光照；可在节点中编辑
+  - 默认模型 `qwen3.8-27b`，默认接口 `http://10.27.89.24/v1/chat/completions`；可用服务端环境变量 `ZMG_QWEN_PE_API_URL` 覆盖
+  - `reasoning_effort` 可选 `off/low/medium/high/xhigh`，`off` 为关闭思考；思考档位越高通常越慢
+  - 可在节点的 `api_key` 字段填写密钥；留空则读取服务进程的 `ZMG_GPUSTACK_API_KEY` 环境变量。**节点内填写的密钥可能保存在工作流 JSON 与任务历史中，分享前必须清空；长期使用更建议服务端环境变量**
+  - 请求失败会报错，不会静默跳过扩写；原 PE 节点可以留作对照或回退
+
 - **Multiline Prompt Node** - 多行提示词处理节点
   - **多行文本输入**：支持多行提示词的输入和处理
   - **行数统计**：自动统计并输出文本总行数
