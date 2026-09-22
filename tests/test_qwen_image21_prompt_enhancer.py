@@ -18,6 +18,15 @@ class QwenImage21PromptEnhancerTests(unittest.TestCase):
         self.inputs = dict(prompt='一根葱，画面中文字“葱 Pro”', system_prompt=module.DEFAULT_SYSTEM_PROMPT,
                            model="qwen3.8-27b", temperature=0.5, max_tokens=1024, timeout=30)
 
+    def test_default_prompt_preserves_visual_and_typography_contract(self):
+        prompt = module.DEFAULT_SYSTEM_PROMPT
+        self.assertIn("one coherent paragraph", prompt)
+        self.assertIn("character for character", prompt)
+        self.assertIn("spatial order", prompt)
+        self.assertIn("lighting a clear source", prompt)
+        self.assertIn("do not put numeric aspect ratios", prompt)
+        self.assertLessEqual(len(prompt), 12000)
+
     @patch.dict(os.environ, {"ZMG_GPUSTACK_API_KEY": "test-secret", "ZMG_QWEN_PE_API_URL": "http://10.27.89.24/v1/chat/completions"})
     @patch("requests.post")
     def test_request_and_output(self, post):
