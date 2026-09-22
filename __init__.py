@@ -10,6 +10,7 @@ from .nodes.MultilinePromptNode import *
 from .nodes.OSSUploadNode import *
 from .nodes.LoadAudioFromUrlNode import *
 from .nodes.CombineImageAudioToVideoNode import *
+from .nodes.QwenImage21PromptEnhancerNode import QwenImage21PromptEnhancerNode
 
 NODE_CONFIG = {
     # Network nodes
@@ -22,6 +23,7 @@ NODE_CONFIG = {
     
     # Text processing nodes
     "MultilinePromptNode": {"class": MultilinePromptNode, "name": "Multiline Prompt 📝"},
+    "QwenImage21PromptEnhancerNode": {"class": QwenImage21PromptEnhancerNode, "name": "Qwen Image 2.1 Prompt Enhancer (GPUStack)"},
     
     # Cloud storage nodes
     "OSSUploadNode": {"class": OSSUploadNode, "name": "OSS Upload 📤"},
